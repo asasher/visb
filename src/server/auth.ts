@@ -5,7 +5,6 @@ import {
   type NextAuthOptions,
 } from "next-auth";
 import { type Adapter } from "next-auth/adapters";
-import DiscordProvider from "next-auth/providers/discord";
 import SpotifyProvider from "next-auth/providers/spotify";
 
 import { env } from "~/env";
@@ -27,6 +26,7 @@ declare module "next-auth" {
   interface Session extends DefaultSession {
     user: {
       id: string;
+      accessToken: string;
       // ...other properties
       // role: UserRole;
     } & DefaultSession["user"];
@@ -45,12 +45,17 @@ declare module "next-auth" {
  */
 export const authOptions: NextAuthOptions = {
   callbacks: {
-    session: ({ session, user }) => ({
+    jwt: async ({ account, token }) => ({
+      ...token,
+      access_token: account?.access_token,
+    }),
+    session: ({ session, user, token }) => ({
       ...session,
       user: {
         ...session.user,
         id: user.id,
       },
+      token: token.access_token,
     }),
   },
   adapter: DrizzleAdapter(db, {
