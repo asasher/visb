@@ -1,4 +1,5 @@
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
+import { and, eq } from "drizzle-orm";
 import {
   getServerSession,
   type DefaultSession,
@@ -30,6 +31,7 @@ declare module "next-auth" {
       // ...other properties
       // role: UserRole;
     } & DefaultSession["user"];
+    error?: string;
   }
 
   // interface User {
@@ -45,18 +47,85 @@ declare module "next-auth" {
  */
 export const authOptions: NextAuthOptions = {
   callbacks: {
-    jwt: async ({ account, token }) => ({
-      ...token,
-      access_token: account?.access_token,
-    }),
-    session: ({ session, user, token }) => ({
-      ...session,
-      user: {
-        ...session.user,
-        id: user.id,
-      },
-      token: token?.access_token,
-    }),
+    session: async ({ session, user }) => {
+      const spotifyAccount = await db.query.accounts.findFirst({
+        where({ userId, provider }, { eq, and }) {
+          return and(eq(userId, user.id), eq(provider, "spotify"));
+        },
+      });
+      let accessToken = spotifyAccount?.access_token;
+
+      if (
+        spotifyAccount?.refresh_token &&
+        spotifyAccount.expires_at &&
+        spotifyAccount.expires_at * 1000 < Date.now()
+      ) {
+        // Access token has expired, we need to refresh it
+        try {
+          const response = await fetch(
+            "https://accounts.spotify.com/api/token",
+            {
+              method: "POST",
+              headers: {
+                // Authorization: Basic <base64 encoded client_id:client_secret>
+                Authorization:
+                  "Basic " +
+                  Buffer.from(
+                    env.SPOTIFY_CLIENT_ID + ":" + env.SPOTIFY_CLIENT_SECRET,
+                  ).toString("base64"),
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              body: new URLSearchParams({
+                grant_type: "refresh_token",
+                refresh_token: spotifyAccount.refresh_token ?? "",
+              }),
+            },
+          );
+          const tokensOrError = (await response.json()) as unknown;
+
+          if (!response.ok) throw tokensOrError;
+
+          const newTokens = tokensOrError as {
+            access_token: string;
+            expires_in: number;
+            refresh_token?: string;
+          };
+
+          await db
+            .update(accounts)
+            .set({
+              access_token: newTokens.access_token,
+              expires_at: Math.floor(Date.now() / 1000 + newTokens.expires_in),
+              refresh_token:
+                newTokens.refresh_token ?? spotifyAccount.refresh_token,
+            })
+            .where(
+              and(
+                eq(accounts.provider, "spotify"),
+                eq(
+                  accounts.providerAccountId,
+                  spotifyAccount.providerAccountId,
+                ),
+              ),
+            );
+
+          accessToken = newTokens.access_token;
+        } catch (error) {
+          console.error("Error refreshing access_token", error);
+          // If we fail to refresh the token, return an error so we can handle it on the page
+          session.error = "RefreshTokenError";
+        }
+      }
+
+      return {
+        ...session,
+        user: {
+          ...session.user,
+          id: user.id,
+          accessToken,
+        },
+      };
+    },
   },
   adapter: DrizzleAdapter(db, {
     usersTable: users,
@@ -68,6 +137,11 @@ export const authOptions: NextAuthOptions = {
     SpotifyProvider({
       clientId: env.SPOTIFY_CLIENT_ID,
       clientSecret: env.SPOTIFY_CLIENT_SECRET,
+      authorization: `https://accounts.spotify.com/authorize/?${new URLSearchParams(
+        {
+          scope: "streaming user-read-private user-read-email",
+        },
+      ).toString()}`,
     }),
   ],
 };
