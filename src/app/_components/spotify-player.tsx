@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { api } from "~/trpc/react";
+import { Drum, Watch } from "lucide-react";
 
 // {
 //   uri: "spotify:track:xxxx", // Spotify URI
@@ -167,6 +169,7 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
   const [nextTrack, setNextTrack] = useState<WebPlaybackTrack>();
   const [isPointerDown, setIsPointerDown] = useState(false);
   const [active, setActive] = useState(false);
+  const { data: trackAnalysis } = api.spotify.analysis.useQuery(track?.id);
 
   useAnimationFrame((deltaTime) => {
     if (paused) return;
@@ -224,64 +227,85 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
     };
   }, [token]);
 
+  useEffect(() => {
+    console.log("Track Analysis", trackAnalysis);
+  }, [trackAnalysis]);
+
   return (
-    <div className="flex w-full flex-col items-end justify-center">
-      <div className="flex w-full items-center justify-center">
-        {track?.album.images[0]?.url && (
-          <div className="relative h-32 w-32">
-            <Image
-              className="object-cover"
-              src={track.album.images[0].url}
-              alt={track.name}
-              fill={true}
-            />
-          </div>
-        )}
-        <div
-          className={`relative h-32 w-full ${enabled ? "bg-green-100" : "bg-gray-100"} `}
-          onPointerDown={(e) => {
-            setIsPointerDown(true);
-            window.addEventListener(
-              "pointerup",
-              () => {
-                console.log("Pointer Up");
-                setIsPointerDown(false);
-              },
-              { once: true },
-            );
-
-            const boundingRect = e.currentTarget.getBoundingClientRect();
-            const clickXRelativeToStart = e.pageX - boundingRect.left;
-            const width = boundingRect.right - boundingRect.left;
-            const progressRatio = clickXRelativeToStart / width;
-            const newPosition = progressRatio * duration;
-
-            if (playerRef.current) void playerRef.current?.seek(newPosition);
-          }}
-          onPointerMove={(e) => {
-            if (!isPointerDown) return;
-            console.log("Pointer Move");
-            const boundingRect = e.currentTarget.getBoundingClientRect();
-            const clickXRelativeToStart = e.pageX - boundingRect.left;
-            const width = boundingRect.right - boundingRect.left;
-            const progressRatio = clickXRelativeToStart / width;
-            const newPosition = progressRatio * duration;
-            if (playerRef.current) void playerRef.current?.seek(newPosition);
-          }}
-        >
+    <div className="grid w-full grid-cols-12 items-end justify-center">
+      <div className="col-span-1 h-16 bg-slate-100"></div>
+      <div className="col-start-2 -col-end-1 flex h-16 w-full items-center justify-center bg-slate-100">
+        {Array.from({ length: trackAnalysis?.numBeats ?? 0 }).map((_, i) => (
           <div
-            className={`h-full ${enabled ? "bg-green-500" : "bg-gray-500"}`}
-            style={{ width: `${(100 * position) / duration}%` }}
+            key={i}
+            className={`h-full flex-1 border-r border-slate-300`}
           ></div>
-          <div className="absolute bottom-2 left-2 text-xs text-white">
-            <p className="text-base">{track?.name}</p>
-            <p>
-              {Math.round(position / 1000)}/{Math.round(duration / 1000)}
-            </p>
-          </div>
+        ))}
+      </div>
+      {track?.album.images[0]?.url && (
+        <div className="relative col-span-1 h-full w-full">
+          <Image
+            className="object-cover"
+            src={track.album.images[0].url}
+            alt={track.name}
+            fill={true}
+          />
+        </div>
+      )}
+      <div
+        className={`relative col-start-2 -col-end-1 h-32 w-full ${enabled ? "bg-green-500" : "bg-gray-100"} `}
+        onPointerDown={(e) => {
+          setIsPointerDown(true);
+          window.addEventListener(
+            "pointerup",
+            () => {
+              console.log("Pointer Up");
+              setIsPointerDown(false);
+            },
+            { once: true },
+          );
+
+          const boundingRect = e.currentTarget.getBoundingClientRect();
+          const clickXRelativeToStart = e.pageX - boundingRect.left;
+          const width = boundingRect.right - boundingRect.left;
+          const progressRatio = clickXRelativeToStart / width;
+          const newPosition = progressRatio * duration;
+
+          if (playerRef.current) void playerRef.current?.seek(newPosition);
+        }}
+        onPointerMove={(e) => {
+          if (!isPointerDown) return;
+          console.log("Pointer Move");
+          const boundingRect = e.currentTarget.getBoundingClientRect();
+          const clickXRelativeToStart = e.pageX - boundingRect.left;
+          const width = boundingRect.right - boundingRect.left;
+          const progressRatio = clickXRelativeToStart / width;
+          const newPosition = progressRatio * duration;
+          if (playerRef.current) void playerRef.current?.seek(newPosition);
+        }}
+      >
+        <div
+          className={`h-full ${enabled ? "bg-green-700" : "bg-gray-500"}`}
+          style={{ width: `${(100 * position) / duration}%` }}
+        ></div>
+        <div className="absolute bottom-2 left-2 text-xs text-white">
+          <p className="text-base">{track?.name}</p>
+          <p>
+            {Math.round(position / 1000)}/{Math.round(duration / 1000)}
+          </p>
+          {trackAnalysis && (
+            <div className="mt-4">
+              <p className="me-4 inline-flex items-center text-xs">
+                {Math.floor(trackAnalysis.tempo)} BPM
+              </p>
+              <p className="inline-flex items-center text-xs">
+                {Math.floor(trackAnalysis.time_signature)}/4
+              </p>
+            </div>
+          )}
         </div>
       </div>
-      <div className="flex w-full items-start justify-between bg-slate-700 py-3 text-white">
+      <div className="col-span-full flex w-full items-start justify-between bg-slate-700 py-3 text-white">
         <div className="flex flex-col items-start">
           {prevTrack && (
             <button

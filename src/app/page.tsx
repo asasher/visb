@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { getServerAuthSession } from "~/server/auth";
-import { HydrateClient } from "~/trpc/server";
+import { api, HydrateClient } from "~/trpc/server";
 import { SpotifyPlayer } from "./_components/spotify-player";
 
 export default async function Home() {
   const session = await getServerAuthSession();
+
+  // const foo = await api.spotify.hello();
+  // console.log(foo);
 
   return (
     <HydrateClient>
