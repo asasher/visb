@@ -1,7 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
 import { api } from "~/trpc/react";
 import { Drum, Watch } from "lucide-react";
 
@@ -171,10 +177,37 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
   const [active, setActive] = useState(false);
   const { data: trackAnalysis } = api.spotify.analysis.useQuery(track?.id);
 
+  const slices = useMemo(
+    () => [
+      {
+        startPosition: 0,
+        endPosition: 18000,
+        shouldPlay: false,
+      },
+      {
+        startPosition: 100000,
+        endPosition: 200000,
+        shouldPlay: false,
+      },
+    ],
+    [],
+  );
+
   useAnimationFrame((deltaTime) => {
     if (paused) return;
     setPosition((prevPosition) => Math.min(prevPosition + deltaTime, duration));
   });
+
+  useEffect(() => {
+    const currentSlice = slices.find(
+      (slice) =>
+        slice.startPosition <= position && position <= slice.endPosition,
+    );
+    if (!currentSlice) return;
+    if (!currentSlice?.shouldPlay) {
+      void playerRef.current?.seek(currentSlice?.endPosition);
+    }
+  }, [position, slices]);
 
   const enabled = active && track;
 
@@ -288,6 +321,16 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
           className={`h-full ${enabled ? "bg-green-700" : "bg-gray-500"}`}
           style={{ width: `${(100 * position) / duration}%` }}
         ></div>
+        {slices.map((slice, i) => (
+          <div
+            key={i}
+            className={`absolute top-0 h-full bg-slate-300`}
+            style={{
+              width: `${(100 * (slice.endPosition - slice.startPosition)) / duration}%`,
+              left: `${(100 * slice.startPosition) / duration}%`,
+            }}
+          ></div>
+        ))}
         <div className="absolute bottom-2 left-2 text-xs text-white">
           <p className="text-base">{track?.name}</p>
           <p>
