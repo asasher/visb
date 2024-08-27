@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { getTableColumns, SQL, sql } from "drizzle-orm";
-import { PgTable } from "drizzle-orm/pg-core";
+import type { PgTable } from "drizzle-orm/pg-core";
 import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {

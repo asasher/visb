@@ -190,7 +190,7 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
     api.tracks.upsert.useMutation({
       async onMutate(newValues) {
         await utils.tracks.get.invalidate();
-        const prevData = await utils.tracks.get.getData(newValues.trackId);
+        const prevData = utils.tracks.get.getData(newValues.trackId);
         utils.tracks.get.setData(newValues.trackId, () => newValues.slices);
         return { prevData };
       },
@@ -198,7 +198,7 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
         utils.tracks.get.setData(newValues.trackId, () => ctx?.prevData);
       },
       onSettled() {
-        utils.tracks.get.invalidate();
+        void utils.tracks.get.invalidate();
       },
     });
   const debouncedUpsertSlices = useDebouncedCallback(upsertSlices, 500);
@@ -275,7 +275,7 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
     return (
       <Alert className="rounded-none">
         <Music className="h-4 w-4" />
-        <AlertTitle>Nothing's playing!</AlertTitle>
+        <AlertTitle>{"Nothing's playing!"}</AlertTitle>
         <AlertDescription>
           Head over to Spotify and connect to Rock DJ to start playing.
         </AlertDescription>
@@ -348,8 +348,9 @@ type SlicesLayerProps = {
 };
 function SlicesLayer({ slices, onChange, duration }: SlicesLayerProps) {
   const bindDrag = useDrag(({ delta: [dx], args, currentTarget }) => {
-    const i: number = args[0];
-    const handle: "start" | "end" = args[1];
+    if (!(args instanceof Array && args.length === 2)) return;
+    const i = args[0] as number;
+    const handle = args[1] as "start" | "end";
     if (!(currentTarget instanceof HTMLDivElement)) return;
 
     const containerDims = currentTarget.parentElement?.getBoundingClientRect();
@@ -373,7 +374,7 @@ function SlicesLayer({ slices, onChange, duration }: SlicesLayerProps) {
 
     if (!prevSlice) return;
 
-    let newSlice = {
+    const newSlice = {
       ...prevSlice,
     };
     if (handle === "start") {
