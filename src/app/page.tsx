@@ -12,7 +12,7 @@ export default async function Home() {
 
   return (
     <HydrateClient>
-      <main className="relative flex min-h-screen flex-col items-start justify-end">
+      <main className="relative flex h-dvh flex-col items-start justify-end">
         <div className="absolute top-0 flex w-full items-center justify-between p-4">
           <div className="text-sm italic">
             <p>Rock DJ</p>

@@ -319,7 +319,7 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
           }}
         />
       </div>
-      <TrackCover className="col-span-2" track={track} />
+      <TrackCover className="col-span-2 h-32" track={track} />
       <div
         className={`relative col-start-3 -col-end-1 flex h-32 w-full justify-between bg-slate-700`}
       >
