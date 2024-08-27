@@ -69,7 +69,6 @@ export const spotifyRouter = createTRPCRouter({
         };
       });
 
-      console.log("Min loudness beats", minLoudnessBeats);
       return {
         ...features,
         numBeats: Math.round(

@@ -8,5 +8,7 @@ export default {
   dbCredentials: {
     url: env.POSTGRES_URL,
   },
+  strict: true,
+  verbose: true,
   tablesFilter: ["visb_*"],
 } satisfies Config;
