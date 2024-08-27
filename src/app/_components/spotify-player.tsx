@@ -1,15 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  useMemo,
-} from "react";
+import React, { useState, useEffect, useRef, Fragment } from "react";
+import { useDrag } from "@use-gesture/react";
 import { api } from "~/trpc/react";
-import { Drum, Watch } from "lucide-react";
+import { useAnimationFrame } from "~/lib/hooks";
+import { Waveform } from "./waveform";
+import { cn } from "~/lib/utils";
 
 // {
 //   uri: "spotify:track:xxxx", // Spotify URI
@@ -137,34 +134,15 @@ declare global {
   }
 }
 
+type Slice = {
+  startPosition: number;
+  endPosition: number;
+  shouldPlay: boolean;
+};
+
 type SpotifyPlayerProps = {
   token: string;
 };
-
-const useAnimationFrame = (callback: (deltaTime: number) => void) => {
-  // Use useRef for mutable variables that we want to persist
-  // without triggering a re-render on their change
-  const requestRef = useRef<number>();
-  const previousTimeRef = useRef<number>();
-
-  const animate = useCallback(
-    (time: number) => {
-      if (previousTimeRef.current != undefined) {
-        const deltaTime = time - previousTimeRef.current;
-        callback(deltaTime);
-      }
-      previousTimeRef.current = time;
-      requestRef.current = requestAnimationFrame(animate);
-    },
-    [callback],
-  );
-
-  useEffect(() => {
-    requestRef.current = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(requestRef.current!);
-  }, [animate]); // Make sure the effect runs only once
-};
-
 export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
   const playerRef = useRef<Player>();
   const [paused, setPaused] = useState(true);
@@ -175,23 +153,21 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
   const [nextTrack, setNextTrack] = useState<WebPlaybackTrack>();
   const [isPointerDown, setIsPointerDown] = useState(false);
   const [active, setActive] = useState(false);
-  const { data: trackAnalysis } = api.spotify.analysis.useQuery(track?.id);
-
-  const slices = useMemo(
-    () => [
-      {
-        startPosition: 0,
-        endPosition: 18000,
-        shouldPlay: false,
-      },
-      {
-        startPosition: 100000,
-        endPosition: 200000,
-        shouldPlay: false,
-      },
-    ],
-    [],
-  );
+  const { data: trackAnalysis } = api.spotify.analysis.useQuery(track?.id, {
+    enabled: !!track,
+  });
+  const [slices, setSlices] = useState<Slice[]>([
+    {
+      startPosition: 0,
+      endPosition: 18000,
+      shouldPlay: false,
+    },
+    {
+      startPosition: 79000,
+      endPosition: 137060,
+      shouldPlay: false,
+    },
+  ]);
 
   useAnimationFrame((deltaTime) => {
     if (paused) return;
@@ -242,7 +218,6 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
       });
 
       player.addListener("player_state_changed", (state) => {
-        console.log("Player state changed", state);
         setPaused(state?.paused ?? true);
         setDuration(state?.duration ?? 0);
         setPosition(state?.position ?? 0);
@@ -251,7 +226,6 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
         setNextTrack(state?.track_window?.next_tracks[0]);
 
         void player.getCurrentState().then((state) => {
-          console.log("Player state is", state);
           setActive(!!state);
         });
       });
@@ -260,148 +234,269 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
     };
   }, [token]);
 
-  useEffect(() => {
-    console.log("Track Analysis", trackAnalysis);
-  }, [trackAnalysis]);
+  const bind = useDrag(({ down, delta: [dx], args, target }) => {
+    const i: number = args[0];
+    const handle: "start" | "end" = args[1];
+    if (!(target instanceof HTMLDivElement)) return;
+
+    const containerDims = target.parentElement?.getBoundingClientRect();
+    if (!containerDims) return;
+
+    const containerLeft = containerDims.left;
+    const containerRight = containerDims.right;
+    const containerWidth = containerRight - containerLeft;
+
+    const handleDims = target.getBoundingClientRect();
+    const handleAnchorOffset =
+      (handle === "start" ? handleDims.left : handleDims.right) - containerLeft;
+
+    const newHandleAnchorOffset = handleAnchorOffset + dx;
+    const newAnchorPositionRatio = newHandleAnchorOffset / containerWidth;
+
+    const newPosition = newAnchorPositionRatio * duration;
+    const boundedNewPosition = Math.max(0, Math.min(newPosition, duration));
+
+    console.log(
+      i,
+      handle,
+      containerLeft,
+      handleDims.left,
+      handleDims.right,
+      handleAnchorOffset,
+      newHandleAnchorOffset,
+      newPosition,
+      boundedNewPosition,
+      dx,
+    );
+
+    setSlices((prevSlices) => {
+      const prevSlice = slices[i];
+      if (!prevSlice) return prevSlices;
+
+      const newSlice = {
+        ...prevSlice,
+        [handle === "start" ? "startPosition" : "endPosition"]:
+          boundedNewPosition,
+      };
+      return [...prevSlices.slice(0, i), newSlice, ...prevSlices.slice(i + 1)];
+    });
+
+    // setSlices((prevSlices) => {
+    //   const prevSlice = prevSlices[i]!;
+    //   const newSlice =
+    //     handle === "start"
+    //       ? {
+    //           ...prevSlice,
+    //           startPosition: boundedNewPosition,
+    //         }
+    //       : {
+    //           ...prevSlice,
+    //           endPosition: boundedNewPosition,
+    //         };
+    //   return [...prevSlices.slice(0, i), newSlice, ...prevSlices.slice(i + 1)];
+    // });
+  });
 
   return (
     <div className="grid w-full grid-cols-12 items-end justify-center">
-      <div className="col-span-1 h-16 bg-slate-100"></div>
-      <div className="col-start-2 -col-end-1 flex h-16 w-full items-center justify-center bg-slate-100">
-        {Array.from({ length: trackAnalysis?.numBeats ?? 0 }).map((_, i) => (
-          <div
-            key={i}
-            className={`h-full flex-1 border-r border-slate-300`}
-          ></div>
-        ))}
-      </div>
-      {track?.album.images[0]?.url && (
-        <div className="relative col-span-1 h-full w-full">
-          <Image
-            className="object-cover"
-            src={track.album.images[0].url}
-            alt={track.name}
-            fill={true}
-          />
-        </div>
-      )}
-      <div
-        className={`relative col-start-2 -col-end-1 h-32 w-full ${enabled ? "bg-green-500" : "bg-gray-100"} `}
-        onPointerDown={(e) => {
-          setIsPointerDown(true);
-          window.addEventListener(
-            "pointerup",
-            () => {
-              console.log("Pointer Up");
-              setIsPointerDown(false);
-            },
-            { once: true },
-          );
-
-          const boundingRect = e.currentTarget.getBoundingClientRect();
-          const clickXRelativeToStart = e.pageX - boundingRect.left;
-          const width = boundingRect.right - boundingRect.left;
-          const progressRatio = clickXRelativeToStart / width;
-          const newPosition = progressRatio * duration;
-
-          if (playerRef.current) void playerRef.current?.seek(newPosition);
-        }}
-        onPointerMove={(e) => {
-          if (!isPointerDown) return;
-          console.log("Pointer Move");
-          const boundingRect = e.currentTarget.getBoundingClientRect();
-          const clickXRelativeToStart = e.pageX - boundingRect.left;
-          const width = boundingRect.right - boundingRect.left;
-          const progressRatio = clickXRelativeToStart / width;
-          const newPosition = progressRatio * duration;
-          if (playerRef.current) void playerRef.current?.seek(newPosition);
-        }}
-      >
+      <div className="relative col-span-full h-32">
         <div
-          className={`h-full ${enabled ? "bg-green-700" : "bg-gray-500"}`}
-          style={{ width: `${(100 * position) / duration}%` }}
-        ></div>
-        {slices.map((slice, i) => (
-          <div
-            key={i}
-            className={`absolute top-0 h-full bg-slate-300`}
-            style={{
-              width: `${(100 * (slice.endPosition - slice.startPosition)) / duration}%`,
-              left: `${(100 * slice.startPosition) / duration}%`,
-            }}
-          ></div>
-        ))}
-        <div className="absolute bottom-2 left-2 text-xs text-white">
-          <p className="text-base">{track?.name}</p>
-          <p>
-            {Math.round(position / 1000)}/{Math.round(duration / 1000)}
-          </p>
-          {trackAnalysis && (
-            <div className="mt-4">
-              <p className="me-4 inline-flex items-center text-xs">
-                {Math.floor(trackAnalysis.tempo)} BPM
-              </p>
-              <p className="inline-flex items-center text-xs">
-                {Math.floor(trackAnalysis.time_signature)}/4
-              </p>
+          className={`relative h-full w-full ${enabled ? "bg-green-600" : "bg-gray-100"} `}
+          onPointerDown={(e) => {
+            setIsPointerDown(true);
+            window.addEventListener(
+              "pointerup",
+              () => {
+                setIsPointerDown(false);
+              },
+              { once: true },
+            );
+
+            const boundingRect = e.currentTarget.getBoundingClientRect();
+            const clickXRelativeToStart = e.pageX - boundingRect.left;
+            const width = boundingRect.right - boundingRect.left;
+            const progressRatio = clickXRelativeToStart / width;
+            const newPosition = progressRatio * duration;
+
+            if (playerRef.current) void playerRef.current?.seek(newPosition);
+          }}
+          onPointerMove={(e) => {
+            if (!isPointerDown) return;
+            const boundingRect = e.currentTarget.getBoundingClientRect();
+            const clickXRelativeToStart = e.pageX - boundingRect.left;
+            const width = boundingRect.right - boundingRect.left;
+            const progressRatio = clickXRelativeToStart / width;
+            const newPosition = progressRatio * duration;
+            if (playerRef.current) void playerRef.current?.seek(newPosition);
+          }}
+        >
+          {duration && trackAnalysis?.beats && (
+            <div className="absolute left-0 top-0 h-full w-full">
+              <Waveform duration={duration} beats={trackAnalysis.beats} />
             </div>
           )}
+          <div
+            className={`h-full ${enabled ? "bg-green-700" : "bg-gray-500"}`}
+            style={{ width: `${(100 * position) / duration}%` }}
+          ></div>
         </div>
+        {duration > 1 &&
+          slices.map((slice, i) => (
+            <Fragment key={i}>
+              <div
+                className="absolute top-0 h-full bg-slate-700 opacity-20"
+                style={{
+                  width: `${(100 * (slice.endPosition - slice.startPosition)) / duration}%`,
+                  left: `${(100 * slice.startPosition) / duration}%`,
+                }}
+              ></div>
+              <div
+                {...bind(i, "start")}
+                className="absolute top-0 h-full w-4 touch-none border-s border-white"
+                style={{
+                  left: `${(100 * slice.startPosition) / duration}%`,
+                }}
+              >
+                <div className="absolute top-1/4 h-1/2 w-full rounded-e-md bg-white"></div>
+              </div>
+              <div
+                {...bind(i, "end")}
+                className="absolute top-0 h-full w-4 touch-none border-e border-white"
+                style={{
+                  left: `calc(${(100 * slice.endPosition) / duration}% - 1rem)`,
+                }}
+              >
+                <div className="absolute top-1/4 h-1/2 w-full rounded-s-md bg-white"></div>
+              </div>
+            </Fragment>
+          ))}
       </div>
-      <div className="col-span-full flex w-full items-start justify-between bg-slate-700 py-3 text-white">
-        <div className="flex flex-col items-start">
-          {prevTrack && (
-            <button
-              className="group px-4 py-1"
-              onClick={() => {
-                if (!playerRef.current) return;
-
-                console.log("Previous Track");
-                void playerRef.current.previousTrack();
-                void playerRef.current.getCurrentState().then((state) => {
-                  console.log("Player state is", state);
-                });
-              }}
-            >
-              <span className="me-2 group-hover:me-3">{"<--"}</span>
-              {prevTrack.name}
-            </button>
-          )}
-          {nextTrack && (
-            <button
-              className="group px-4 py-1"
-              onClick={() => {
-                if (!playerRef.current) return;
-
-                console.log("Next Track");
-                void playerRef.current.nextTrack();
-                void playerRef.current.getCurrentState().then((state) => {
-                  console.log("Player state is", state);
-                });
-              }}
-            >
-              {nextTrack.name}
-              <span className="ms-2 group-hover:ms-3">{"-->"}</span>
-            </button>
-          )}
-        </div>
-        <div>
-          <button
-            className="px-4 py-1"
-            onClick={() => {
-              if (!playerRef.current) return;
-
-              console.log("Play / Pause");
-              void playerRef.current.togglePlay();
-              void playerRef.current.getCurrentState().then((state) => {
-                console.log("Player state is", state);
-              });
-            }}
-          >
-            Play / Pause
-          </button>
-        </div>
+      {track && <TrackCover className="col-span-2" track={track} />}
+      <div
+        className={`relative col-start-3 -col-end-1 flex h-32 w-full justify-between bg-slate-700`}
+      >
+        {track && (
+          <TrackInfo
+            className="absolute bottom-2 left-2"
+            track={track}
+            position={position}
+            duration={duration}
+            trackAnalysis={trackAnalysis}
+          />
+        )}
+        {playerRef.current && (
+          <TrackControls
+            className="absolute bottom-2 right-2"
+            player={playerRef.current}
+            nextTrack={nextTrack}
+            prevTrack={prevTrack}
+          />
+        )}
       </div>
+    </div>
+  );
+}
+
+type TrackCoverProps = {
+  track: WebPlaybackTrack;
+  className?: string;
+};
+function TrackCover({ track, className }: TrackCoverProps) {
+  return (
+    track?.album.images[0]?.url && (
+      <div className={cn("relative h-full w-full", className)}>
+        <Image
+          className="object-cover"
+          src={track.album.images[0].url}
+          alt={track.name}
+          fill={true}
+        />
+      </div>
+    )
+  );
+}
+
+type TrackInfoProps = {
+  track: WebPlaybackTrack;
+  position: number;
+  duration: number;
+  trackAnalysis?: {
+    tempo: number;
+    time_signature: number;
+  } | null;
+  className?: string;
+};
+function TrackInfo({
+  track,
+  position,
+  duration,
+  trackAnalysis,
+  className,
+}: TrackInfoProps) {
+  return (
+    <div className={cn("text-xs text-white", className)}>
+      <p className="text-base">{track?.name}</p>
+      <p>
+        {Math.round(position / 1000)}/{Math.round(duration / 1000)}
+      </p>
+      {trackAnalysis && (
+        <div className="mt-4">
+          <p className="me-4 inline-flex items-center text-xs">
+            {Math.floor(trackAnalysis.tempo)} BPM
+          </p>
+          <p className="inline-flex items-center text-xs">
+            {Math.floor(trackAnalysis.time_signature)}/4
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+type TrackControlsProps = {
+  player: Player;
+  className?: string;
+  prevTrack?: WebPlaybackTrack;
+  nextTrack?: WebPlaybackTrack;
+};
+function TrackControls({
+  player,
+  prevTrack,
+  nextTrack,
+  className,
+}: TrackControlsProps) {
+  return (
+    <div className={cn("flex flex-col items-end text-white", className)}>
+      <button
+        className="px-4 py-1"
+        onClick={() => {
+          void player.togglePlay();
+        }}
+      >
+        Play / Pause
+      </button>
+      {prevTrack && (
+        <button
+          className="group px-4 py-1"
+          onClick={() => {
+            void player.previousTrack();
+          }}
+        >
+          <span className="me-2 group-hover:me-3">{"<--"}</span>
+          {prevTrack.name}
+        </button>
+      )}
+      {nextTrack && (
+        <button
+          className="group px-4 py-1"
+          onClick={() => {
+            void player.nextTrack();
+          }}
+        >
+          {nextTrack.name}
+          <span className="ms-2 group-hover:ms-3">{"-->"}</span>
+        </button>
+      )}
     </div>
   );
 }

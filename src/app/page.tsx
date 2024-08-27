@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getServerAuthSession } from "~/server/auth";
 import { api, HydrateClient } from "~/trpc/server";
 import { SpotifyPlayer } from "./_components/spotify-player";
+import { Button } from "~/components/ui/button";
 
 export default async function Home() {
   const session = await getServerAuthSession();
@@ -16,12 +17,14 @@ export default async function Home() {
           <div className="text-sm italic">
             <p>Rock DJ</p>
           </div>
-          <Link
-            className="text-xs font-bold"
-            href={session ? "/api/auth/signout" : "/api/auth/signin"}
-          >
-            {session ? "Sign out" : "Sign in"}
-          </Link>
+          <Button variant={"link"} asChild>
+            <Link
+              className="text-xs font-bold"
+              href={session ? "/api/auth/signout" : "/api/auth/signin"}
+            >
+              {session ? "Sign out" : "Sign in"}
+            </Link>
+          </Button>
         </div>
         {session?.user && <SpotifyPlayer token={session?.user.accessToken} />}
       </main>
