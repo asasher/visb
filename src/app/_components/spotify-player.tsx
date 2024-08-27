@@ -285,7 +285,7 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
 
   return (
     <div className="grid w-full grid-cols-12 items-end justify-center">
-      <div className="-col-end-1 flex items-center justify-center p-2">
+      <div className="col-span-full flex items-center justify-end p-2">
         <Button
           variant={"outline"}
           className="p-3"
@@ -332,6 +332,7 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
         />
         <TrackControls
           className="absolute bottom-2 right-2"
+          paused={paused}
           player={playerRef.current}
           nextTrack={nextTrack}
           prevTrack={prevTrack}
@@ -501,16 +502,25 @@ function TrackProgress({
       const newPosition = progressRatio * duration;
       setCursorPosition(newPosition);
     },
-    onPointerDown: () => {
+    onPointerDown: ({ event }) => {
       if (!isSlicing) return;
-      console.log("Down", draftSliceAnchorPosition);
+
+      const currentTarget = event.currentTarget as HTMLDivElement;
+      if (!currentTarget) return;
+
+      const boundingRect = currentTarget.getBoundingClientRect();
+      const clickXRelativeToStart = event.pageX - boundingRect.left;
+      const width = boundingRect.right - boundingRect.left;
+      const progressRatio = clickXRelativeToStart / width;
+      const newPosition = progressRatio * duration;
+
       if (!draftSliceAnchorPosition) {
-        setDraftSliceAnchorPosition(cursorPosition);
+        setDraftSliceAnchorPosition(newPosition);
       } else {
         onSlice({
           id: nanoid(),
-          startPosition: Math.min(cursorPosition, draftSliceAnchorPosition),
-          endPosition: Math.max(cursorPosition, draftSliceAnchorPosition),
+          startPosition: Math.min(newPosition, draftSliceAnchorPosition),
+          endPosition: Math.max(newPosition, draftSliceAnchorPosition),
           shouldPlay: false,
         });
         setDraftSliceAnchorPosition(null);
@@ -594,12 +604,14 @@ function TrackInfo({
 
 type TrackControlsProps = {
   player: Player;
+  paused: boolean;
   className?: string;
   prevTrack: WebPlaybackTrack | null;
   nextTrack: WebPlaybackTrack | null;
 };
 function TrackControls({
   player,
+  paused,
   prevTrack,
   nextTrack,
   className,
@@ -612,7 +624,7 @@ function TrackControls({
           void player.togglePlay();
         }}
       >
-        Play / Pause
+        {paused ? "Play" : "Pause"}
       </button>
       {prevTrack && (
         <button
@@ -621,8 +633,8 @@ function TrackControls({
             void player.previousTrack();
           }}
         >
-          <span className="me-2 group-hover:me-3">{"<--"}</span>
-          {prevTrack.name}
+          <span className="group-hover:me-3 sm:me-2">{"<--"}</span>
+          <span className="hidden sm:inline">{prevTrack.name}</span>
         </button>
       )}
       {nextTrack && (
@@ -632,7 +644,7 @@ function TrackControls({
             void player.nextTrack();
           }}
         >
-          {nextTrack.name}
+          <span className="hidden sm:inline">{nextTrack.name}</span>
           <span className="ms-2 group-hover:ms-3">{"-->"}</span>
         </button>
       )}
