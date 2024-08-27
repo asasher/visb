@@ -234,19 +234,19 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
     };
   }, [token]);
 
-  const bind = useDrag(({ down, delta: [dx], args, target }) => {
+  const bind = useDrag(({ down, delta: [dx], args, currentTarget }) => {
     const i: number = args[0];
     const handle: "start" | "end" = args[1];
-    if (!(target instanceof HTMLDivElement)) return;
+    if (!(currentTarget instanceof HTMLDivElement)) return;
 
-    const containerDims = target.parentElement?.getBoundingClientRect();
+    const containerDims = currentTarget.parentElement?.getBoundingClientRect();
     if (!containerDims) return;
 
     const containerLeft = containerDims.left;
     const containerRight = containerDims.right;
     const containerWidth = containerRight - containerLeft;
 
-    const handleDims = target.getBoundingClientRect();
+    const handleDims = currentTarget.getBoundingClientRect();
     const handleAnchorOffset =
       (handle === "start" ? handleDims.left : handleDims.right) - containerLeft;
 
@@ -256,45 +256,35 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
     const newPosition = newAnchorPositionRatio * duration;
     const boundedNewPosition = Math.max(0, Math.min(newPosition, duration));
 
-    console.log(
-      i,
-      handle,
-      containerLeft,
-      handleDims.left,
-      handleDims.right,
-      handleAnchorOffset,
-      newHandleAnchorOffset,
-      newPosition,
-      boundedNewPosition,
-      dx,
-    );
-
     setSlices((prevSlices) => {
       const prevSlice = slices[i];
       if (!prevSlice) return prevSlices;
 
-      const newSlice = {
+      let newSlice = {
         ...prevSlice,
-        [handle === "start" ? "startPosition" : "endPosition"]:
-          boundedNewPosition,
       };
+      if (handle === "start") {
+        // Can't be more than the end position
+        newSlice.startPosition = Math.min(
+          boundedNewPosition,
+          prevSlice.endPosition,
+        );
+      }
+      if (handle === "end") {
+        // Can't be less than the start position
+        newSlice.endPosition = Math.max(
+          boundedNewPosition,
+          prevSlice.startPosition,
+        );
+      }
+
+      if (newSlice.endPosition - newSlice.startPosition < 1) {
+        // If the new slice is too small, just remove it
+        return [...prevSlices.slice(0, i), ...prevSlices.slice(i + 1)];
+      }
+
       return [...prevSlices.slice(0, i), newSlice, ...prevSlices.slice(i + 1)];
     });
-
-    // setSlices((prevSlices) => {
-    //   const prevSlice = prevSlices[i]!;
-    //   const newSlice =
-    //     handle === "start"
-    //       ? {
-    //           ...prevSlice,
-    //           startPosition: boundedNewPosition,
-    //         }
-    //       : {
-    //           ...prevSlice,
-    //           endPosition: boundedNewPosition,
-    //         };
-    //   return [...prevSlices.slice(0, i), newSlice, ...prevSlices.slice(i + 1)];
-    // });
   });
 
   return (
