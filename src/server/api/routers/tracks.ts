@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { buildConflictUpdateColumns } from "~/lib/utils";
-import { eq, inArray, not } from "drizzle-orm";
+import { and, eq, inArray, not } from "drizzle-orm";
 import { trackSlices } from "~/server/db/schema";
 
 export const tracksRouter = createTRPCRouter({
@@ -54,7 +54,12 @@ export const tracksRouter = createTRPCRouter({
       await ctx.db.transaction(async (trx) => {
         await trx
           .delete(trackSlices)
-          .where(not(inArray(trackSlices.id, sliceIds)));
+          .where(
+            and(
+              eq(trackSlices.spotifyTrackId, trackId),
+              not(inArray(trackSlices.id, sliceIds)),
+            ),
+          );
 
         await trx
           .insert(trackSlices)
