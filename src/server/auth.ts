@@ -29,6 +29,7 @@ declare module "next-auth" {
     user: {
       id: string;
       accessToken: string;
+      providerAccountId: string;
       // ...other properties
       // role: UserRole;
     } & DefaultSession["user"];
@@ -129,6 +130,7 @@ export const authOptions: NextAuthOptions = {
             ...session.user,
             id: user.id,
             accessToken: spotifyAccount?.access_token,
+            providerAccountId: spotifyAccount?.providerAccountId,
           },
         };
       } catch (error) {
@@ -140,6 +142,7 @@ export const authOptions: NextAuthOptions = {
             ...session.user,
             id: user.id,
             accessToken: null,
+            providerAccountId: null,
           },
           error: "RefreshTokenError",
         };
@@ -158,7 +161,8 @@ export const authOptions: NextAuthOptions = {
       clientSecret: env.SPOTIFY_CLIENT_SECRET,
       authorization: `https://accounts.spotify.com/authorize/?${new URLSearchParams(
         {
-          scope: "streaming user-read-private user-read-email",
+          scope:
+            "streaming user-read-private user-read-email playlist-read-private user-read-playback-state user-modify-playback-state playlist-read-collaborative",
         },
       ).toString()}`,
     }),

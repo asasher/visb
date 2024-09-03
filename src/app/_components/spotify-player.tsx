@@ -285,10 +285,10 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
 
   return (
     <div className="grid w-full grid-cols-12 items-end justify-center">
-      <div className="col-span-full flex items-center justify-end p-2">
+      <div className="col-span-full flex items-center justify-end bg-green-600 px-4 py-2">
         <Button
           variant={"outline"}
-          className="p-3"
+          className="border-none p-3"
           onClick={() => setIsSlicing(!isSlicing)}
           disabled={isSlicing || isSavingSlice || isSlicesQueryLoading}
         >

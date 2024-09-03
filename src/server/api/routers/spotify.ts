@@ -25,6 +25,68 @@ const getSpotifySdk = async (userId: string) => {
 };
 
 export const spotifyRouter = createTRPCRouter({
+  playlists: protectedProcedure
+    .input(
+      z.object({
+        cursor: z.number().default(0),
+      }),
+    )
+    .query(async ({ ctx, input: { cursor } }) => {
+      const limit = 50;
+      const userId = ctx.session.user.id;
+      const spotifyUserId = ctx.session.user.providerAccountId;
+      const sdk = await getSpotifySdk(userId);
+      const playlists = await sdk.playlists.getUsersPlaylists(
+        spotifyUserId,
+        limit,
+        cursor,
+      );
+      return {
+        items: playlists.items.map((playlist) => ({
+          id: playlist.id,
+          name: playlist.name,
+          totalTracks: playlist.tracks.total,
+          imageUrl: playlist.images[0]?.url,
+        })),
+        nextCursor: cursor + limit,
+      };
+    }),
+  getPlaylistTracks: protectedProcedure
+    .input(
+      z.object({
+        playlistId: z.string().nullable(),
+        cursor: z.number().default(0),
+      }),
+    )
+    .query(async ({ ctx, input: { playlistId, cursor } }) => {
+      if (!playlistId)
+        return {
+          items: [],
+          nextCursor: cursor,
+        };
+      const limit = 50;
+      const userId = ctx.session.user.id;
+      const sdk = await getSpotifySdk(userId);
+      const playlistTracks = await sdk.playlists.getPlaylistItems(
+        playlistId,
+        undefined,
+        undefined,
+        limit,
+        cursor,
+      );
+      const trackIds = playlistTracks.items.map((track) => track.track.id);
+      const trackFeatures = await sdk.tracks.audioFeatures(trackIds);
+      return {
+        items: playlistTracks.items.map((track) => ({
+          id: track.track.id,
+          name: track.track.name,
+          imageUrl: track.track.album.images[0]?.url,
+          duration: track.track.duration_ms,
+          ...trackFeatures.find((feature) => feature.id === track.track.id),
+        })),
+        nextCursor: cursor + limit,
+      };
+    }),
   analysis: protectedProcedure
     .input(z.string().optional())
     .query(async ({ ctx, input: trackId }) => {
