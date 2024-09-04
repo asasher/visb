@@ -12,6 +12,7 @@ import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
 import { Loader2, Music, Slice } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
+import { SpotifyPlaylist } from "./spotify-playlist";
 
 // {
 //   uri: "spotify:track:xxxx", // Spotify URI
@@ -153,6 +154,7 @@ type LocalPlayerState = {
   track: WebPlaybackTrack | null;
   prevTrack: WebPlaybackTrack | null;
   nextTrack: WebPlaybackTrack | null;
+  deviceId: string | null;
 };
 type SpotifyPlayerProps = {
   token: string;
@@ -166,8 +168,10 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
     track: null,
     prevTrack: null,
     nextTrack: null,
+    deviceId: null,
   });
-  const { paused, duration, position, track, prevTrack, nextTrack } = state;
+  const { paused, duration, position, track, prevTrack, nextTrack, deviceId } =
+    state;
   const { data: trackAnalysis } = api.spotify.analysis.useQuery(track?.id, {
     enabled: !!track,
   });
@@ -247,10 +251,18 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
 
       player.addListener("ready", ({ device_id }) => {
         console.log("Ready with Device ID", device_id);
+        setState((prevState) => ({
+          ...prevState,
+          deviceId: device_id,
+        }));
       });
 
       player.addListener("not_ready", ({ device_id }) => {
         console.log("Device ID has gone offline", device_id);
+        setState((prevState) => ({
+          ...prevState,
+          deviceId: null,
+        }));
       });
 
       player.addListener("player_state_changed", (state) => {
@@ -284,61 +296,64 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
   }
 
   return (
-    <div className="grid w-full grid-cols-12 items-end justify-center">
-      <div className="col-span-full flex items-center justify-end bg-green-600 px-4 py-2">
-        <Button
-          variant={"outline"}
-          className="border-none p-3"
-          onClick={() => setIsSlicing(!isSlicing)}
-          disabled={isSlicing || isSavingSlice || isSlicesQueryLoading}
+    <>
+      {deviceId && <SpotifyPlaylist deviceId={deviceId} />}
+      <div className="grid w-full grid-cols-12 items-end justify-center">
+        <div className="col-span-full flex items-center justify-end bg-green-600 px-4 py-2">
+          <Button
+            variant={"outline"}
+            className="border-none p-3"
+            onClick={() => setIsSlicing(!isSlicing)}
+            disabled={isSlicing || isSavingSlice || isSlicesQueryLoading}
+          >
+            {isSavingSlice || isSlicesQueryLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Slice className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+        <div className="relative col-span-full h-20">
+          <TrackProgress
+            player={playerRef.current}
+            position={position}
+            duration={duration}
+            trackAnalysis={trackAnalysis}
+            isSlicing={isSlicing}
+            onSlice={(draftSlice) => {
+              setIsSlicing(false);
+              setSlices([...(slices ?? []), draftSlice]);
+            }}
+          />
+          <SlicesLayer
+            slices={slices ?? []}
+            duration={duration}
+            onChange={(slices: Slice[]) => {
+              setSlices(slices);
+            }}
+          />
+        </div>
+        <TrackCover className="col-span-2 h-28" track={track} />
+        <div
+          className={`relative col-start-3 -col-end-1 flex h-full w-full justify-between bg-slate-700`}
         >
-          {isSavingSlice || isSlicesQueryLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Slice className="h-4 w-4" />
-          )}
-        </Button>
+          <TrackInfo
+            className="absolute bottom-2 left-2"
+            track={track}
+            position={position}
+            duration={duration}
+            trackAnalysis={trackAnalysis}
+          />
+          <TrackControls
+            className="absolute bottom-2 right-2"
+            paused={paused}
+            player={playerRef.current}
+            nextTrack={nextTrack}
+            prevTrack={prevTrack}
+          />
+        </div>
       </div>
-      <div className="relative col-span-full h-32">
-        <TrackProgress
-          player={playerRef.current}
-          position={position}
-          duration={duration}
-          trackAnalysis={trackAnalysis}
-          isSlicing={isSlicing}
-          onSlice={(draftSlice) => {
-            setIsSlicing(false);
-            setSlices([...(slices ?? []), draftSlice]);
-          }}
-        />
-        <SlicesLayer
-          slices={slices ?? []}
-          duration={duration}
-          onChange={(slices: Slice[]) => {
-            setSlices(slices);
-          }}
-        />
-      </div>
-      <TrackCover className="col-span-2 h-32" track={track} />
-      <div
-        className={`relative col-start-3 -col-end-1 flex h-32 w-full justify-between bg-slate-700`}
-      >
-        <TrackInfo
-          className="absolute bottom-2 left-2"
-          track={track}
-          position={position}
-          duration={duration}
-          trackAnalysis={trackAnalysis}
-        />
-        <TrackControls
-          className="absolute bottom-2 right-2"
-          paused={paused}
-          player={playerRef.current}
-          nextTrack={nextTrack}
-          prevTrack={prevTrack}
-        />
-      </div>
-    </div>
+    </>
   );
 }
 

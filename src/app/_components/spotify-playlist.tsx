@@ -7,12 +7,18 @@ import { ScrollArea } from "~/components/ui/scroll-area";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
 
-export function SpotifyPlaylist() {
+type SpotifyPlaylistProps = {
+  deviceId: string;
+};
+export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
   const { data: playlists, isLoading: isPlaylistsLoading } =
     api.spotify.playlists.useQuery({
       cursor: 0,
     });
   const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null);
+
+  const { mutate: playOnDevice, isPending: isPlayOnDeviceLoading } =
+    api.spotify.addToQueue.useMutation();
 
   const { data: tracks, isLoading: isTracksLoading } =
     api.spotify.getPlaylistTracks.useQuery(
@@ -36,11 +42,26 @@ export function SpotifyPlaylist() {
       <>
         <ScrollArea className="h-full w-full rounded-md border border-none p-4">
           {tracks.items.map((track) => (
-            <TrackCard
+            <Button
+              className={cn(
+                "relative block h-fit w-full rounded-none border-none p-0 text-left text-black shadow-none odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200",
+              )}
+              onClick={() =>
+                track.uri && playOnDevice({ trackUri: track.uri, deviceId })
+              }
+              disabled={
+                isTracksLoading || isPlaylistsLoading || isPlayOnDeviceLoading
+              }
               key={track.id}
-              track={track}
-              className="cursor-pointer odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200"
-            />
+            >
+              <TrackCard
+                track={track}
+                className="cursor-pointer odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200"
+              />
+              <p className="pointer-events-none absolute right-4 top-3">
+                Add to Queue
+              </p>
+            </Button>
           ))}
         </ScrollArea>
         <Button
@@ -52,7 +73,7 @@ export function SpotifyPlaylist() {
             playlist={activePlaylist}
             className="pointer-events-none"
           />
-          <p className="pointer-events-none absolute right-4 top-1/4 cursor-pointer text-5xl font-black text-white">
+          <p className="pointer-events-none absolute right-4 top-1 cursor-pointer text-3xl font-black text-white">
             X
           </p>
         </Button>
@@ -74,12 +95,9 @@ export function SpotifyPlaylist() {
           )}
           onClick={() => setActivePlaylistId(playlist.id)}
           disabled={isTracksLoading || isPlaylistsLoading}
+          key={playlist.id}
         >
-          <PlaylistCard
-            key={playlist.id}
-            playlist={playlist}
-            className="pointer-events-none"
-          />
+          <PlaylistCard playlist={playlist} className="pointer-events-none" />
         </Button>
       ))}
     </ScrollArea>
@@ -121,16 +139,18 @@ function PlaylistCard({ playlist, className, onClick }: PlaylistCardProps) {
     <div
       key={playlist.id}
       onClick={onClick}
-      className={cn("flex w-full items-start justify-start gap-2", className)}
+      className={cn("flex w-full items-center justify-start gap-2", className)}
     >
       <CoverImage
-        className="h-24 w-24"
+        className="h-10 w-10"
         imageUrl={playlist.imageUrl}
         alt={playlist.name}
       />
-      <div className="flex flex-col gap-2 px-2 py-4">
-        <p>{playlist.name}</p>
-        <p className="mt-4 text-xs">{playlist.totalTracks} TRACKS</p>
+      <div>
+        <p className="inline-flex text-sm">{playlist.name}</p>
+        <p className="ms-4 inline-flex text-xs">
+          {playlist.totalTracks} TRACKS
+        </p>
       </div>
     </div>
   );
@@ -151,24 +171,22 @@ function TrackCard({ track, className, onClick }: TrackCardProps) {
   return (
     <div
       key={track.id}
-      className={cn("flex w-full items-start justify-start gap-2", className)}
+      className={cn("flex w-full items-center justify-start gap-2", className)}
       onClick={onClick}
     >
       <CoverImage
-        className="h-24 w-24"
+        className="h-10 w-10"
         imageUrl={track.imageUrl}
         alt={track.name}
       />
-      <div className="flex flex-col gap-2 px-2 py-4">
-        <p>{track.name}</p>
-        <div>
-          <p className="me-4 inline-flex items-center text-xs">
-            {Math.round(track.tempo ?? 0)} BPM
-          </p>
-          <p className="me-4 inline-flex items-center text-xs">
-            {track.time_signature}/4
-          </p>
-        </div>
+      <div>
+        <p className="inline-flex text-sm">{track.name}</p>
+        <p className="ms-4 inline-flex items-center text-xs">
+          {Math.round(track.tempo ?? 0)} BPM
+        </p>
+        <p className="ms-2 inline-flex items-center text-xs">
+          {track.time_signature}/4
+        </p>
       </div>
     </div>
   );

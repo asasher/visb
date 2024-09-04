@@ -3,7 +3,6 @@ import { getServerAuthSession } from "~/server/auth";
 import { HydrateClient } from "~/trpc/server";
 import { SpotifyPlayer } from "./_components/spotify-player";
 import { Button } from "~/components/ui/button";
-import { SpotifyPlaylist } from "./_components/spotify-playlist";
 
 export default async function Home() {
   const session = await getServerAuthSession();
@@ -24,7 +23,6 @@ export default async function Home() {
             </Link>
           </Button>
         </div>
-        {session?.user && <SpotifyPlaylist />}
         {session?.user && <SpotifyPlayer token={session?.user.accessToken} />}
       </main>
     </HydrateClient>
