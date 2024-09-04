@@ -25,6 +25,29 @@ const getSpotifySdk = async (userId: string) => {
 };
 
 export const spotifyRouter = createTRPCRouter({
+  playOnDevice: protectedProcedure
+    .input(
+      z.object({
+        playlistUri: z.string().optional(),
+        trackUri: z.string().optional(),
+        deviceId: z.string(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const userId = ctx.session.user.id;
+      const sdk = await getSpotifySdk(userId);
+      const playbackState = await sdk.player.getPlaybackState();
+      if (playbackState.device.id !== input.deviceId) {
+        await sdk.player.transferPlayback([input.deviceId], true);
+      }
+      if (input.trackUri) {
+        await sdk.player.startResumePlayback(input.deviceId, undefined, [
+          input.trackUri,
+        ]);
+      } else if (input.playlistUri) {
+        await sdk.player.startResumePlayback(input.deviceId, input.playlistUri);
+      }
+    }),
   addToQueue: protectedProcedure
     .input(
       z.object({
@@ -63,6 +86,7 @@ export const spotifyRouter = createTRPCRouter({
           name: playlist.name,
           totalTracks: playlist.tracks.total,
           imageUrl: playlist.images[0]?.url,
+          uri: playlist.uri,
         })),
         nextCursor: cursor + limit,
       };

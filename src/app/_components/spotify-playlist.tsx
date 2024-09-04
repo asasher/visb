@@ -18,7 +18,7 @@ export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
   const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null);
 
   const { mutate: playOnDevice, isPending: isPlayOnDeviceLoading } =
-    api.spotify.addToQueue.useMutation();
+    api.spotify.playOnDevice.useMutation();
 
   const { data: tracks, isLoading: isTracksLoading } =
     api.spotify.getPlaylistTracks.useQuery(
@@ -47,7 +47,12 @@ export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
                 "relative block h-fit w-full rounded-none border-none p-0 text-left text-black shadow-none odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200",
               )}
               onClick={() =>
-                track.uri && playOnDevice({ trackUri: track.uri, deviceId })
+                track.uri &&
+                playOnDevice({
+                  playlistUri: activePlaylist.uri,
+                  trackUri: track.uri,
+                  deviceId,
+                })
               }
               disabled={
                 isTracksLoading || isPlaylistsLoading || isPlayOnDeviceLoading
@@ -58,15 +63,17 @@ export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
                 track={track}
                 className="cursor-pointer odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200"
               />
-              <p className="pointer-events-none absolute right-4 top-3">
-                Add to Queue
+              <p className="pointer-events-none absolute right-4 top-3 text-xs">
+                Play
               </p>
             </Button>
           ))}
         </ScrollArea>
         <Button
           className="relative h-fit w-full rounded-none bg-slate-200 p-0 text-left text-black hover:bg-slate-300"
-          onClick={() => setActivePlaylistId(null)}
+          onClick={() => {
+            setActivePlaylistId(null);
+          }}
           disabled={isTracksLoading || isPlaylistsLoading}
         >
           <PlaylistCard
@@ -93,11 +100,20 @@ export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
           className={cn(
             "relative block h-fit w-full rounded-none border-none p-0 text-left text-black shadow-none odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200",
           )}
-          onClick={() => setActivePlaylistId(playlist.id)}
+          onClick={() => {
+            setActivePlaylistId(playlist.id);
+            void playOnDevice({
+              deviceId,
+              playlistUri: playlist.uri,
+            });
+          }}
           disabled={isTracksLoading || isPlaylistsLoading}
           key={playlist.id}
         >
           <PlaylistCard playlist={playlist} className="pointer-events-none" />
+          <p className="pointer-events-none absolute right-4 top-3 text-xs">
+            Play
+          </p>
         </Button>
       ))}
     </ScrollArea>
