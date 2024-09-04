@@ -9,7 +9,7 @@ export default async function Home() {
 
   return (
     <HydrateClient>
-      <main className="relative flex h-dvh flex-col items-start justify-end">
+      <main className="grid h-dvh grid-rows-12">
         <div className="flex w-full items-center justify-between px-4 py-2">
           <div className="text-sm italic">
             <p>Rock DJ</p>
@@ -23,7 +23,9 @@ export default async function Home() {
             </Link>
           </Button>
         </div>
-        {session?.user && <SpotifyPlayer token={session?.user.accessToken} />}
+        <div className="row-start-2 -row-end-1 w-full overflow-hidden">
+          {session?.user && <SpotifyPlayer token={session?.user.accessToken} />}
+        </div>
       </main>
     </HydrateClient>
   );

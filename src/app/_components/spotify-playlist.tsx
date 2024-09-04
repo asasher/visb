@@ -33,15 +33,43 @@ export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
 
   if (!playlists) return null;
 
-  if (tracks) {
-    const activePlaylist = playlists.items.find(
-      (x) => x.id === activePlaylistId,
-    );
-    if (!activePlaylist) return null;
-    return (
-      <>
-        <ScrollArea className="h-full w-full rounded-md border border-none p-4">
-          {tracks.items.map((track) => (
+  const activePlaylist = playlists.items.find((x) => x.id === activePlaylistId);
+
+  return (
+    <>
+      <ScrollArea
+        className={cn(
+          "rounded-md border border-none p-4",
+          isTracksLoading ? "animate-pulse" : "",
+        )}
+      >
+        {!activePlaylist &&
+          playlists.items.map((playlist) => (
+            <Button
+              className={cn(
+                "relative block h-fit w-full rounded-none border-none p-0 text-left text-black shadow-none odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200",
+              )}
+              onClick={() => {
+                setActivePlaylistId(playlist.id);
+                void playOnDevice({
+                  deviceId,
+                  playlistUri: playlist.uri,
+                });
+              }}
+              disabled={isTracksLoading || isPlaylistsLoading}
+              key={playlist.id}
+            >
+              <PlaylistCard
+                playlist={playlist}
+                className="pointer-events-none"
+              />
+              <p className="pointer-events-none absolute right-4 top-3 text-xs">
+                Play
+              </p>
+            </Button>
+          ))}
+        {!!tracks &&
+          tracks.items.map((track) => (
             <Button
               className={cn(
                 "relative block h-fit w-full rounded-none border-none p-0 text-left text-black shadow-none odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200",
@@ -49,7 +77,7 @@ export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
               onClick={() =>
                 track.uri &&
                 playOnDevice({
-                  playlistUri: activePlaylist.uri,
+                  playlistUri: activePlaylist?.uri,
                   trackUri: track.uri,
                   deviceId,
                 })
@@ -68,7 +96,8 @@ export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
               </p>
             </Button>
           ))}
-        </ScrollArea>
+      </ScrollArea>
+      {activePlaylist && (
         <Button
           className="relative h-fit w-full rounded-none bg-slate-200 p-0 text-left text-black hover:bg-slate-300"
           onClick={() => {
@@ -84,39 +113,8 @@ export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
             X
           </p>
         </Button>
-      </>
-    );
-  }
-
-  return (
-    <ScrollArea
-      className={cn(
-        "h-full w-full rounded-md border border-none p-4",
-        isTracksLoading ? "animate-pulse" : "",
       )}
-    >
-      {playlists.items.map((playlist) => (
-        <Button
-          className={cn(
-            "relative block h-fit w-full rounded-none border-none p-0 text-left text-black shadow-none odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200",
-          )}
-          onClick={() => {
-            setActivePlaylistId(playlist.id);
-            void playOnDevice({
-              deviceId,
-              playlistUri: playlist.uri,
-            });
-          }}
-          disabled={isTracksLoading || isPlaylistsLoading}
-          key={playlist.id}
-        >
-          <PlaylistCard playlist={playlist} className="pointer-events-none" />
-          <p className="pointer-events-none absolute right-4 top-3 text-xs">
-            Play
-          </p>
-        </Button>
-      ))}
-    </ScrollArea>
+    </>
   );
 }
 
@@ -163,7 +161,7 @@ function PlaylistCard({ playlist, className, onClick }: PlaylistCardProps) {
         alt={playlist.name}
       />
       <div>
-        <p className="inline-flex text-sm">{playlist.name}</p>
+        <p className="inline-flex text-ellipsis text-sm">{playlist.name}</p>
         <p className="ms-4 inline-flex text-xs">
           {playlist.totalTracks} TRACKS
         </p>
@@ -195,7 +193,7 @@ function TrackCard({ track, className, onClick }: TrackCardProps) {
         imageUrl={track.imageUrl}
         alt={track.name}
       />
-      <div>
+      <div className="w-8/12 overflow-x-scroll">
         <p className="inline-flex text-sm">{track.name}</p>
         <p className="ms-4 inline-flex items-center text-xs">
           {Math.round(track.tempo ?? 0)} BPM

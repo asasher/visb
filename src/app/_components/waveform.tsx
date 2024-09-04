@@ -12,9 +12,10 @@ type WaveformProps = {
     position: number; // position in ms
     value: number; // value between 0 and 1, representing loudness or amplitude etc
   }[];
+  tempo: number;
 };
 
-export function Waveform({ className, duration, beats }: WaveformProps) {
+export function Waveform({ className, duration, beats, tempo }: WaveformProps) {
   const [worldWidth, setWorldWidth] = useState(100);
   const [worldHeight, setWorldHeight] = useState(100);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -45,6 +46,46 @@ export function Waveform({ className, duration, beats }: WaveformProps) {
       ctx.closePath();
       ctx.fillStyle = colors.green[500];
       ctx.fill();
+
+      const beatsBasedOnTempo = Math.floor((duration / 60000) * tempo);
+      ctx.strokeStyle = colors.green[700];
+      ctx.lineWidth = 1;
+
+      for (let i = 0; i < beatsBasedOnTempo; i++) {
+        if (i % 4 !== 0) continue;
+
+        const position = i / beatsBasedOnTempo;
+        const x = canvas.width * position;
+
+        const y = 0.5 * canvas.height;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = colors.green[700];
+      ctx.lineWidth = 1;
+      let dv = -0.1;
+      let v = 0.1;
+      for (let i = 0; i < beatsBasedOnTempo; i++) {
+        if (i % 4 === 0) {
+          dv = -dv;
+          continue;
+        }
+
+        const position = i / beatsBasedOnTempo;
+        const x = canvas.width * position;
+
+        const y = v * canvas.height;
+
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+
+        v = v + dv;
+      }
     },
     [beats, duration],
   );
