@@ -13,6 +13,7 @@ import { Button } from "~/components/ui/button";
 import { Loader2, Music, Slice } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { SpotifyPlaylist } from "./spotify-playlist";
+import { Input } from "~/components/ui/input";
 
 // {
 //   uri: "spotify:track:xxxx", // Spotify URI
