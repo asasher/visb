@@ -207,10 +207,10 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
     });
   const debouncedUpsertSlices = useDebouncedCallback(upsertSlices, 500);
   const setSlices = (slices: Slice[]) => {
-    utils.tracks.get.setData(track?.id, () => slices);
     if (!track?.id) return;
+    utils.tracks.get.setData(track.id, () => slices);
     debouncedUpsertSlices({
-      trackId: track?.id,
+      trackId: track.id,
       slices,
     });
   };
@@ -395,28 +395,27 @@ function SlicesLayer({
   onSlicingEnd,
   onSlicingStart,
 }: SlicesLayerProps) {
-  const sliceRef = useRef<HTMLDivElement>(null);
-  const positionToPx = (position: number) => {
-    const containerDims =
-      sliceRef.current?.parentElement?.getBoundingClientRect();
-    if (!containerDims) return 0;
-    const { width: viewportWidth } = containerDims;
+  const positionToPx = (position: number, viewportWidth: number) => {
     return _positionToPx(position, duration, viewportWidth, scaleX, offsetX);
   };
-  const pxToPosition = (px: number) => {
-    const containerDims =
-      sliceRef.current?.parentElement?.getBoundingClientRect();
-    if (!containerDims) return 0;
-    const { width: viewportWidth } = containerDims;
-
+  const pxToPosition = (px: number, viewportWidth: number) => {
     return _pxToPosition(px, viewportWidth, duration, scaleX, offsetX);
   };
+  const divRef = useRef<HTMLDivElement>(null);
+  const [vw, setVw] = useState(0);
+  useEffect(() => {
+    const container = divRef.current?.parentElement;
+    if (!container) return;
+    const { width } = container.getBoundingClientRect();
+    setVw(width);
+  }, [divRef.current]);
   const bindDrag = useDrag(
     ({ delta: [dx], args, currentTarget, first, last }) => {
       if (first) onSlicingStart();
 
       if (!(args instanceof Array && args.length === 2)) return;
-      const i = args[0] as number;
+      const id = args[0] as string;
+
       const handle = args[1] as "start" | "end";
       if (!(currentTarget instanceof HTMLDivElement)) return;
 
@@ -424,20 +423,18 @@ function SlicesLayer({
         currentTarget.parentElement?.getBoundingClientRect();
       if (!containerDims) return;
 
-      const containerLeft = containerDims.left;
-
       const handleDims = currentTarget.getBoundingClientRect();
       const handleAnchorOffset =
-        (handle === "start" ? handleDims.left : handleDims.right) -
-        containerLeft;
+        handle === "start" ? handleDims.left : handleDims.right;
 
       const newHandleAnchorOffset = handleAnchorOffset + dx;
 
-      const newPosition = pxToPosition(newHandleAnchorOffset);
+      const { width: viewportWidth } = containerDims;
+
+      const newPosition = pxToPosition(newHandleAnchorOffset, viewportWidth);
       const boundedNewPosition = Math.max(0, Math.min(newPosition, duration));
 
-      const prevSlice = slices[i];
-
+      const prevSlice = slices.find((x) => x.id === id);
       if (!prevSlice) return;
 
       const newSlice = {
@@ -460,40 +457,40 @@ function SlicesLayer({
 
       if (newSlice.endPosition - newSlice.startPosition < 1) {
         // If the new slice is too small, just remove it
-        onChange([...slices.slice(0, i), ...slices.slice(i + 1)]);
+        onChange(slices.filter((x) => x.id !== id));
         onSlicingEnd();
         return;
       }
 
-      onChange([...slices.slice(0, i), newSlice, ...slices.slice(i + 1)]);
+      onChange(slices.map((x) => (x.id === id ? newSlice : x)));
       if (last) onSlicingEnd();
     },
   );
 
   return slices.map((slice, i) => (
-    <Fragment key={i}>
+    <Fragment key={slice.id}>
       <div
-        ref={sliceRef}
+        ref={divRef}
         className="absolute top-0 h-full bg-slate-700 opacity-20"
         style={{
-          width: `${positionToPx(slice.endPosition) - positionToPx(slice.startPosition)}px`,
-          left: `${positionToPx(slice.startPosition)}px`,
+          width: `${positionToPx(slice.endPosition, vw) - positionToPx(slice.startPosition, vw)}px`,
+          left: `${positionToPx(slice.startPosition, vw)}px`,
         }}
       ></div>
       <div
-        {...bindDrag(i, "start")}
+        {...bindDrag(slice.id, "start")}
         className="absolute top-0 h-full w-4 touch-none border-s border-white"
         style={{
-          left: `${positionToPx(slice.startPosition)}px`,
+          left: `${positionToPx(slice.startPosition, vw)}px`,
         }}
       >
         <div className="absolute top-1/4 h-1/2 w-full rounded-e-md bg-white"></div>
       </div>
       <div
-        {...bindDrag(i, "end")}
+        {...bindDrag(slice.id, "end")}
         className="absolute top-0 h-full w-4 touch-none border-e border-white"
         style={{
-          left: `calc(${positionToPx(slice.endPosition)}px - 1rem)`,
+          left: `calc(${positionToPx(slice.endPosition, vw)}px - 1rem)`,
         }}
       >
         <div className="absolute top-1/4 h-1/2 w-full rounded-s-md bg-white"></div>
