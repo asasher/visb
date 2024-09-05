@@ -27,8 +27,8 @@ export const tracksRouter = createTRPCRouter({
         slices: z.array(
           z.object({
             id: z.string(),
-            startPosition: z.number(),
-            endPosition: z.number(),
+            startPosition: z.number().min(0),
+            endPosition: z.number().min(1),
             shouldPlay: z.boolean(),
           }),
         ),

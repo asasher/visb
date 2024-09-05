@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useGesture } from "@use-gesture/react";
+import { useCallback, useRef, useState } from "react";
 import { useAnimationFrame } from "~/lib/hooks";
 import { cn } from "~/lib/utils";
 import colors from "tailwindcss/colors";
@@ -40,9 +39,9 @@ export function Waveform({
       // Fix the coordinates system to be more intuitive
       // x increases from left to right
       // y increases from top to bottom
+      // Order of transformation is important
       ctx.scale(scaleX, -1);
-      ctx.translate(offsetX, -canvas.height);
-      // console.log(offsetX, scaleX);
+      ctx.translate(offsetX / scaleX, -canvas.height);
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -70,7 +69,7 @@ export function Waveform({
       ctx.fill();
 
       // Beatgrid
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1 / scaleX;
       ctx.strokeStyle = colors.green[700];
       const beatsBasedOnTempo = Math.floor((duration / 60000) * tempo);
 

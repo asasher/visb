@@ -1,13 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  Fragment,
-  useCallback,
-} from "react";
+import React, { useState, useEffect, useRef, Fragment } from "react";
 import { useDrag, useGesture } from "@use-gesture/react";
 import { nanoid } from "nanoid";
 import { useDebouncedCallback } from "use-debounce";
@@ -19,8 +13,6 @@ import { Button } from "~/components/ui/button";
 import { Loader2, Music, Slice } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { SpotifyPlaylist } from "./spotify-playlist";
-import { Input } from "~/components/ui/input";
-import { doc } from "prettier";
 
 // {
 //   uri: "spotify:track:xxxx", // Spotify URI
@@ -330,9 +322,6 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
               onSlicingStart={() => setIsSlicing(true)}
               onSlicingEnd={() => setIsSlicing(false)}
               onSlicesChange={(changedSlices: Slice[]) => {
-                if (changedSlices.length !== slices?.length) {
-                  setIsSlicing(false);
-                }
                 setSlices(changedSlices);
               }}
             />
@@ -362,6 +351,32 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
   );
 }
 
+const _positionToPx = (
+  position: number,
+  duration: number,
+  viewportWidth: number,
+  scaleX: number,
+  offsetX: number,
+) => {
+  const viewportDuration = duration / scaleX;
+  const x = (position * viewportWidth) / viewportDuration + offsetX;
+  return x;
+};
+const _pxToPosition = (
+  px: number,
+  viewportWidth: number,
+  duration: number,
+  scaleX: number,
+  offsetX: number,
+) => {
+  const viewportDuration = duration / scaleX;
+  const viewportPosition = (viewportDuration * px) / viewportWidth;
+  const offsetPosition = (viewportDuration * offsetX) / viewportWidth;
+  const position = viewportPosition - offsetPosition;
+
+  return position;
+};
+
 type SlicesLayerProps = {
   slices: Slice[];
   duration: number;
@@ -386,8 +401,7 @@ function SlicesLayer({
       sliceRef.current?.parentElement?.getBoundingClientRect();
     if (!containerDims) return 0;
     const { width: viewportWidth } = containerDims;
-
-    return scaleX * ((viewportWidth * position) / duration) + offsetX * scaleX;
+    return _positionToPx(position, duration, viewportWidth, scaleX, offsetX);
   };
   const pxToPosition = (px: number) => {
     const containerDims =
@@ -395,12 +409,10 @@ function SlicesLayer({
     if (!containerDims) return 0;
     const { width: viewportWidth } = containerDims;
 
-    const scaledPx = px / scaleX + offsetX / scaleX;
-    const position = (duration * scaledPx) / viewportWidth;
-    return position;
+    return _pxToPosition(px, viewportWidth, duration, scaleX, offsetX);
   };
   const bindDrag = useDrag(
-    ({ delta: [dx], args, currentTarget, event, first, last }) => {
+    ({ delta: [dx], args, currentTarget, first, last }) => {
       if (first) onSlicingStart();
 
       if (!(args instanceof Array && args.length === 2)) return;
@@ -566,30 +578,40 @@ function TrackProgress({
     const containerDims = divRef.current?.getBoundingClientRect();
     if (!containerDims) return 0;
     const { width: viewportWidth } = containerDims;
-
-    return scaleX * ((viewportWidth * position) / duration) + offsetX * scaleX;
+    return _positionToPx(position, duration, viewportWidth, scaleX, offsetX);
   };
   const pxToPosition = (px: number) => {
     const containerDims = divRef.current?.getBoundingClientRect();
     if (!containerDims) return 0;
     const { width: viewportWidth } = containerDims;
 
-    const scaledPx = px / scaleX + offsetX / scaleX;
-    const position = (duration * scaledPx) / viewportWidth;
-    return position;
+    return _pxToPosition(px, viewportWidth, duration, scaleX, offsetX);
+  };
+
+  const onWheelOrTwoFingerDrag = (dx: number) => {
+    const boundingRect = divRef.current?.getBoundingClientRect();
+    if (!boundingRect) return;
+    setOffsetX((prevOffsetX) =>
+      Math.max(
+        Math.min(0, prevOffsetX - dx),
+        -(scaleX - 1) * boundingRect.right,
+      ),
+    );
   };
 
   useGesture(
     {
-      onDrag: ({ xy: [x], currentTarget }) => {
-        if (!(currentTarget instanceof HTMLDivElement)) return;
+      onDrag: ({ xy: [x], currentTarget, touches }) => {
+        if (touches === 2) {
+          onWheelOrTwoFingerDrag(x);
+          return;
+        }
         if (isSlicing) return;
 
         const newPosition = pxToPosition(x);
         void player.seek(newPosition);
       },
       onMove: ({ xy: [x], currentTarget }) => {
-        if (!(currentTarget instanceof HTMLDivElement)) return;
         const newPosition = pxToPosition(x);
         setCursorPosition(newPosition);
       },
@@ -612,19 +634,14 @@ function TrackProgress({
           };
           onSlicesChange([...slices, newSlice]);
           setDraftSliceAnchorPosition(null);
+          onSlicingEnd();
         }
       },
       onWheel: ({ delta: [dx], event }) => {
         const currentTarget = event.currentTarget as HTMLDivElement;
         if (!currentTarget) return;
 
-        const boundingRect = currentTarget.getBoundingClientRect();
-        setOffsetX((prevOffsetX) =>
-          Math.max(
-            Math.min(0, prevOffsetX - dx),
-            (-(scaleX - 1) * boundingRect.right) / scaleX,
-          ),
-        );
+        onWheelOrTwoFingerDrag(dx);
       },
       onPinch: ({ offset: [scale] }) => {
         setScaleX(scale);
@@ -635,7 +652,7 @@ function TrackProgress({
       pinch: {
         scaleBounds: {
           min: 1,
-          max: 4,
+          max: 8,
         },
       },
     },
@@ -682,9 +699,7 @@ function TrackProgress({
         slices={slices ?? []}
         duration={duration}
         onSlicingStart={onSlicingStart}
-        onChange={(changedSlices: Slice[]) => {
-          onSlicesChange(changedSlices);
-        }}
+        onChange={onSlicesChange}
         onSlicingEnd={onSlicingEnd}
         offsetX={offsetX}
         scaleX={scaleX}
