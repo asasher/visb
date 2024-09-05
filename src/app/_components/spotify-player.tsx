@@ -14,6 +14,7 @@ import { Loader2, Music, Slice } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { SpotifyPlaylist } from "./spotify-playlist";
 import { Input } from "~/components/ui/input";
+import { doc } from "prettier";
 
 // {
 //   uri: "spotify:track:xxxx", // Spotify URI
@@ -313,25 +314,32 @@ export function SpotifyPlayer({ token, className }: SpotifyPlayerProps) {
               )}
             </Button>
           </div>
-          <div className="relative col-span-full h-20">
+          <div className="relative col-span-full h-20 overflow-hidden">
             <TrackProgress
               player={playerRef.current}
               position={position}
               duration={duration}
               trackAnalysis={trackAnalysis}
               isSlicing={isSlicing}
-              onSlice={(draftSlice) => {
-                setIsSlicing(false);
-                setSlices([...(slices ?? []), draftSlice]);
+              slices={slices ?? []}
+              onSlicesChange={(changedSlices: Slice[]) => {
+                if (changedSlices.length !== slices?.length) {
+                  setIsSlicing(false);
+                }
+                setSlices(changedSlices);
               }}
+              // onSlice={(draftSlice) => {
+              //   setIsSlicing(false);
+              //   setSlices([...(slices ?? []), draftSlice]);
+              // }}
             />
-            <SlicesLayer
+            {/* <SlicesLayer
               slices={slices ?? []}
               duration={duration}
               onChange={(slices: Slice[]) => {
                 setSlices(slices);
               }}
-            />
+            /> */}
           </div>
           <TrackCover className="col-span-2 h-28" track={track} />
           <div
@@ -362,6 +370,8 @@ type SlicesLayerProps = {
   slices: Slice[];
   duration: number;
   onChange: (slices: Slice[]) => void;
+  offsetX: number;
+  scaleX: number;
 };
 function SlicesLayer({ slices, onChange, duration }: SlicesLayerProps) {
   const bindDrag = useDrag(({ delta: [dx], args, currentTarget }) => {
@@ -482,7 +492,9 @@ type TrackProgressProps = {
   } | null;
   player: Player;
   isSlicing: boolean;
-  onSlice: (slice: Slice) => void;
+  slices: Slice[];
+  onSlicesChange: (slices: Slice[]) => void;
+  // onSlice: (slice: Slice) => void;
 };
 function TrackProgress({
   className,
@@ -491,62 +503,117 @@ function TrackProgress({
   trackAnalysis,
   player,
   isSlicing = false,
-  onSlice,
+  slices,
+  onSlicesChange,
+  // onSlice,
 }: TrackProgressProps) {
+  const divRef = useRef<HTMLDivElement>(null);
+
   const [cursorPosition, setCursorPosition] = useState(0);
   const [draftSliceAnchorPosition, setDraftSliceAnchorPosition] = useState<
     number | null
   >(null);
-  const bindGesture = useGesture({
-    onDrag: ({ xy: [x], currentTarget }) => {
-      if (!(currentTarget instanceof HTMLDivElement)) return;
-      if (isSlicing) return;
 
-      const boundingRect = currentTarget.getBoundingClientRect();
-      const clickXRelativeToStart = x - boundingRect.left;
-      const width = boundingRect.right - boundingRect.left;
-      const progressRatio = clickXRelativeToStart / width;
-      const newPosition = progressRatio * duration;
-      void player.seek(newPosition);
+  const [offsetX, setOffsetX] = useState(0);
+  const [scaleX, setScaleX] = useState(1);
+
+  useEffect(() => {
+    // Prevent browsers default pinching to zoom behavior
+    const wheelHandler = (e: WheelEvent) => {
+      e.preventDefault();
+    };
+    document.addEventListener("wheel", wheelHandler, { passive: false });
+
+    return () => {
+      document.removeEventListener("wheel", wheelHandler);
+    };
+  }, []);
+
+  useGesture(
+    {
+      onDrag: ({ xy: [x], currentTarget }) => {
+        if (!(currentTarget instanceof HTMLDivElement)) return;
+        if (isSlicing) return;
+
+        const boundingRect = currentTarget.getBoundingClientRect();
+        const clickXRelativeToStart = x - boundingRect.left;
+        const width = boundingRect.right - boundingRect.left;
+        const progressRatio = clickXRelativeToStart / width;
+        const newPosition = progressRatio * duration;
+        void player.seek(newPosition);
+      },
+      onMove: ({ xy: [x], currentTarget }) => {
+        if (!(currentTarget instanceof HTMLDivElement)) return;
+        const boundingRect = currentTarget.getBoundingClientRect();
+        const clickXRelativeToStart = x - boundingRect.left;
+        const width = boundingRect.right - boundingRect.left;
+        const progressRatio = clickXRelativeToStart / width;
+        const newPosition = progressRatio * duration;
+        setCursorPosition(newPosition);
+      },
+      onPointerDown: ({ event }) => {
+        if (!isSlicing) return;
+
+        const currentTarget = event.currentTarget as HTMLDivElement;
+        if (!currentTarget) return;
+
+        const boundingRect = currentTarget.getBoundingClientRect();
+        const clickXRelativeToStart = event.pageX - boundingRect.left;
+        const width = boundingRect.right - boundingRect.left;
+        const progressRatio = clickXRelativeToStart / width;
+        const newPosition = progressRatio * duration;
+
+        if (!draftSliceAnchorPosition) {
+          setDraftSliceAnchorPosition(newPosition);
+        } else {
+          // onSlice({
+          //   id: nanoid(),
+          //   startPosition: Math.min(newPosition, draftSliceAnchorPosition),
+          //   endPosition: Math.max(newPosition, draftSliceAnchorPosition),
+          //   shouldPlay: false,
+          // });
+          const newSlice = {
+            id: nanoid(),
+            startPosition: Math.min(newPosition, draftSliceAnchorPosition),
+            endPosition: Math.max(newPosition, draftSliceAnchorPosition),
+            shouldPlay: false,
+          };
+          onSlicesChange([...slices, newSlice]);
+          setDraftSliceAnchorPosition(null);
+        }
+      },
+      onWheel: ({ delta: [dx], event }) => {
+        const currentTarget = event.currentTarget as HTMLDivElement;
+        if (!currentTarget) return;
+
+        const boundingRect = currentTarget.getBoundingClientRect();
+        setOffsetX((prevOffsetX) =>
+          Math.max(
+            Math.min(0, prevOffsetX - dx),
+            (-(scaleX - 1) * boundingRect.right) / scaleX,
+          ),
+        );
+      },
+      onPinch: ({ offset: [scale] }) => {
+        setScaleX(scale);
+      },
     },
-    onMove: ({ xy: [x], currentTarget }) => {
-      if (!(currentTarget instanceof HTMLDivElement)) return;
-      const boundingRect = currentTarget.getBoundingClientRect();
-      const clickXRelativeToStart = x - boundingRect.left;
-      const width = boundingRect.right - boundingRect.left;
-      const progressRatio = clickXRelativeToStart / width;
-      const newPosition = progressRatio * duration;
-      setCursorPosition(newPosition);
+    {
+      target: divRef,
+      pinch: {
+        scaleBounds: {
+          min: 1,
+          max: 4,
+        },
+      },
     },
-    onPointerDown: ({ event }) => {
-      if (!isSlicing) return;
+  );
 
-      const currentTarget = event.currentTarget as HTMLDivElement;
-      if (!currentTarget) return;
-
-      const boundingRect = currentTarget.getBoundingClientRect();
-      const clickXRelativeToStart = event.pageX - boundingRect.left;
-      const width = boundingRect.right - boundingRect.left;
-      const progressRatio = clickXRelativeToStart / width;
-      const newPosition = progressRatio * duration;
-
-      if (!draftSliceAnchorPosition) {
-        setDraftSliceAnchorPosition(newPosition);
-      } else {
-        onSlice({
-          id: nanoid(),
-          startPosition: Math.min(newPosition, draftSliceAnchorPosition),
-          endPosition: Math.max(newPosition, draftSliceAnchorPosition),
-          shouldPlay: false,
-        });
-        setDraftSliceAnchorPosition(null);
-      }
-    },
-  });
+  console.log(offsetX, scaleX);
 
   return (
     <div
-      {...bindGesture()}
+      ref={divRef}
       className={cn(
         "relative h-full w-full touch-none bg-green-600",
         className,
@@ -555,16 +622,16 @@ function TrackProgress({
       {duration && trackAnalysis?.beats && (
         <div className="absolute left-0 top-0 h-full w-full">
           <Waveform
+            className="pointer-events-none"
+            position={position}
             duration={duration}
             beats={trackAnalysis.beats}
             tempo={trackAnalysis.tempo}
+            offsetX={offsetX}
+            scaleX={scaleX}
           />
         </div>
       )}
-      <div
-        className="h-full bg-green-700"
-        style={{ width: `${(100 * position) / duration}%` }}
-      ></div>
       <div
         className={cn(
           "absolute top-0 h-full w-px bg-white",
@@ -581,6 +648,15 @@ function TrackProgress({
           style={{ left: `${(100 * draftSliceAnchorPosition) / duration}%` }}
         ></div>
       )}
+      <SlicesLayer
+        slices={slices ?? []}
+        duration={duration}
+        onChange={(changedSlices: Slice[]) => {
+          onSlicesChange(changedSlices);
+        }}
+        offsetX={offsetX}
+        scaleX={scaleX}
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useGesture } from "@use-gesture/react";
 import { useAnimationFrame } from "~/lib/hooks";
 import { cn } from "~/lib/utils";
 import colors from "tailwindcss/colors";
@@ -13,9 +14,20 @@ type WaveformProps = {
     value: number; // value between 0 and 1, representing loudness or amplitude etc
   }[];
   tempo: number;
+  position: number;
+  offsetX: number;
+  scaleX: number;
 };
 
-export function Waveform({ className, duration, beats, tempo }: WaveformProps) {
+export function Waveform({
+  className,
+  position,
+  duration,
+  beats,
+  tempo,
+  offsetX,
+  scaleX,
+}: WaveformProps) {
   const [worldWidth, setWorldWidth] = useState(100);
   const [worldHeight, setWorldHeight] = useState(100);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -28,28 +40,39 @@ export function Waveform({ className, duration, beats, tempo }: WaveformProps) {
       // Fix the coordinates system to be more intuitive
       // x increases from left to right
       // y increases from top to bottom
-      ctx.scale(1, -1);
-      ctx.translate(0, -canvas.height);
+      ctx.scale(scaleX, -1);
+      ctx.translate(offsetX, -canvas.height);
+      // console.log(offsetX, scaleX);
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+      // Progress
+      ctx.fillStyle = colors.green[700];
       ctx.moveTo(0, 0);
+      ctx.lineTo(0, canvas.height);
+      ctx.lineTo((canvas.width * position) / duration, canvas.height);
+      ctx.lineTo((canvas.width * position) / duration, 0);
+      ctx.closePath();
+      ctx.fill();
 
+      // Wave
+      ctx.fillStyle = colors.green[500];
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
       beats.forEach((point) => {
         ctx.lineTo(
           (canvas.width * point.position) / duration,
           point.value * 0.8 * canvas.height,
         );
       });
-
       ctx.lineTo(canvas.width, 0);
       ctx.closePath();
-      ctx.fillStyle = colors.green[500];
       ctx.fill();
 
-      const beatsBasedOnTempo = Math.floor((duration / 60000) * tempo);
-      ctx.strokeStyle = colors.green[700];
+      // Beatgrid
       ctx.lineWidth = 1;
+      ctx.strokeStyle = colors.green[700];
+      const beatsBasedOnTempo = Math.floor((duration / 60000) * tempo);
 
       for (let i = 0; i < beatsBasedOnTempo; i++) {
         if (i % 4 !== 0) continue;
@@ -64,8 +87,6 @@ export function Waveform({ className, duration, beats, tempo }: WaveformProps) {
         ctx.stroke();
       }
 
-      ctx.strokeStyle = colors.green[700];
-      ctx.lineWidth = 1;
       let dv = -0.1;
       let v = 0.1;
       for (let i = 0; i < beatsBasedOnTempo; i++) {
@@ -87,7 +108,7 @@ export function Waveform({ className, duration, beats, tempo }: WaveformProps) {
         v = v + dv;
       }
     },
-    [beats, duration, tempo],
+    [beats, duration, tempo, scaleX, offsetX, position],
   );
 
   useAnimationFrame(() => {
