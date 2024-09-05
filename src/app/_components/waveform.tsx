@@ -87,7 +87,7 @@ export function Waveform({ className, duration, beats, tempo }: WaveformProps) {
         v = v + dv;
       }
     },
-    [beats, duration],
+    [beats, duration, tempo],
   );
 
   useAnimationFrame(() => {
