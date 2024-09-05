@@ -1,7 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import React, { useState, useEffect, useRef, Fragment } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  Fragment,
+  useCallback,
+} from "react";
 import { useDrag, useGesture } from "@use-gesture/react";
 import { nanoid } from "nanoid";
 import { useDebouncedCallback } from "use-debounce";
@@ -160,9 +166,8 @@ type LocalPlayerState = {
 };
 type SpotifyPlayerProps = {
   token: string;
-  className?: string;
 };
-export function SpotifyPlayer({ token, className }: SpotifyPlayerProps) {
+export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
   const playerRef = useRef<Player>();
   const [state, setState] = useState<LocalPlayerState>({
     paused: true,
@@ -322,24 +327,15 @@ export function SpotifyPlayer({ token, className }: SpotifyPlayerProps) {
               trackAnalysis={trackAnalysis}
               isSlicing={isSlicing}
               slices={slices ?? []}
+              onSlicingStart={() => setIsSlicing(true)}
+              onSlicingEnd={() => setIsSlicing(false)}
               onSlicesChange={(changedSlices: Slice[]) => {
                 if (changedSlices.length !== slices?.length) {
                   setIsSlicing(false);
                 }
                 setSlices(changedSlices);
               }}
-              // onSlice={(draftSlice) => {
-              //   setIsSlicing(false);
-              //   setSlices([...(slices ?? []), draftSlice]);
-              // }}
             />
-            {/* <SlicesLayer
-              slices={slices ?? []}
-              duration={duration}
-              onChange={(slices: Slice[]) => {
-                setSlices(slices);
-              }}
-            /> */}
           </div>
           <TrackCover className="col-span-2 h-28" track={track} />
           <div
@@ -369,79 +365,114 @@ export function SpotifyPlayer({ token, className }: SpotifyPlayerProps) {
 type SlicesLayerProps = {
   slices: Slice[];
   duration: number;
+  onSlicingStart: () => void;
+  onSlicingEnd: () => void;
   onChange: (slices: Slice[]) => void;
   offsetX: number;
   scaleX: number;
 };
-function SlicesLayer({ slices, onChange, duration }: SlicesLayerProps) {
-  const bindDrag = useDrag(({ delta: [dx], args, currentTarget }) => {
-    if (!(args instanceof Array && args.length === 2)) return;
-    const i = args[0] as number;
-    const handle = args[1] as "start" | "end";
-    if (!(currentTarget instanceof HTMLDivElement)) return;
+function SlicesLayer({
+  slices,
+  onChange,
+  duration,
+  scaleX,
+  offsetX,
+  onSlicingEnd,
+  onSlicingStart,
+}: SlicesLayerProps) {
+  const sliceRef = useRef<HTMLDivElement>(null);
+  const positionToPx = (position: number) => {
+    const containerDims =
+      sliceRef.current?.parentElement?.getBoundingClientRect();
+    if (!containerDims) return 0;
+    const { width: viewportWidth } = containerDims;
 
-    const containerDims = currentTarget.parentElement?.getBoundingClientRect();
-    if (!containerDims) return;
+    return scaleX * ((viewportWidth * position) / duration) + offsetX * scaleX;
+  };
+  const pxToPosition = (px: number) => {
+    const containerDims =
+      sliceRef.current?.parentElement?.getBoundingClientRect();
+    if (!containerDims) return 0;
+    const { width: viewportWidth } = containerDims;
 
-    const containerLeft = containerDims.left;
-    const containerRight = containerDims.right;
-    const containerWidth = containerRight - containerLeft;
+    const scaledPx = px / scaleX + offsetX / scaleX;
+    const position = (duration * scaledPx) / viewportWidth;
+    return position;
+  };
+  const bindDrag = useDrag(
+    ({ delta: [dx], args, currentTarget, event, first, last }) => {
+      if (first) onSlicingStart();
 
-    const handleDims = currentTarget.getBoundingClientRect();
-    const handleAnchorOffset =
-      (handle === "start" ? handleDims.left : handleDims.right) - containerLeft;
+      if (!(args instanceof Array && args.length === 2)) return;
+      const i = args[0] as number;
+      const handle = args[1] as "start" | "end";
+      if (!(currentTarget instanceof HTMLDivElement)) return;
 
-    const newHandleAnchorOffset = handleAnchorOffset + dx;
-    const newAnchorPositionRatio = newHandleAnchorOffset / containerWidth;
+      const containerDims =
+        currentTarget.parentElement?.getBoundingClientRect();
+      if (!containerDims) return;
 
-    const newPosition = newAnchorPositionRatio * duration;
-    const boundedNewPosition = Math.max(0, Math.min(newPosition, duration));
+      const containerLeft = containerDims.left;
 
-    const prevSlice = slices[i];
+      const handleDims = currentTarget.getBoundingClientRect();
+      const handleAnchorOffset =
+        (handle === "start" ? handleDims.left : handleDims.right) -
+        containerLeft;
 
-    if (!prevSlice) return;
+      const newHandleAnchorOffset = handleAnchorOffset + dx;
 
-    const newSlice = {
-      ...prevSlice,
-    };
-    if (handle === "start") {
-      // Can't be more than the end position
-      newSlice.startPosition = Math.min(
-        boundedNewPosition,
-        prevSlice.endPosition,
-      );
-    }
-    if (handle === "end") {
-      // Can't be less than the start position
-      newSlice.endPosition = Math.max(
-        boundedNewPosition,
-        prevSlice.startPosition,
-      );
-    }
+      const newPosition = pxToPosition(newHandleAnchorOffset);
+      const boundedNewPosition = Math.max(0, Math.min(newPosition, duration));
 
-    if (newSlice.endPosition - newSlice.startPosition < 1) {
-      // If the new slice is too small, just remove it
-      onChange([...slices.slice(0, i), ...slices.slice(i + 1)]);
-      return;
-    }
+      const prevSlice = slices[i];
 
-    onChange([...slices.slice(0, i), newSlice, ...slices.slice(i + 1)]);
-  });
+      if (!prevSlice) return;
+
+      const newSlice = {
+        ...prevSlice,
+      };
+      if (handle === "start") {
+        // Can't be more than the end position
+        newSlice.startPosition = Math.min(
+          boundedNewPosition,
+          prevSlice.endPosition,
+        );
+      }
+      if (handle === "end") {
+        // Can't be less than the start position
+        newSlice.endPosition = Math.max(
+          boundedNewPosition,
+          prevSlice.startPosition,
+        );
+      }
+
+      if (newSlice.endPosition - newSlice.startPosition < 1) {
+        // If the new slice is too small, just remove it
+        onChange([...slices.slice(0, i), ...slices.slice(i + 1)]);
+        onSlicingEnd();
+        return;
+      }
+
+      onChange([...slices.slice(0, i), newSlice, ...slices.slice(i + 1)]);
+      if (last) onSlicingEnd();
+    },
+  );
 
   return slices.map((slice, i) => (
     <Fragment key={i}>
       <div
+        ref={sliceRef}
         className="absolute top-0 h-full bg-slate-700 opacity-20"
         style={{
-          width: `${(100 * (slice.endPosition - slice.startPosition)) / duration}%`,
-          left: `${(100 * slice.startPosition) / duration}%`,
+          width: `${positionToPx(slice.endPosition) - positionToPx(slice.startPosition)}px`,
+          left: `${positionToPx(slice.startPosition)}px`,
         }}
       ></div>
       <div
         {...bindDrag(i, "start")}
         className="absolute top-0 h-full w-4 touch-none border-s border-white"
         style={{
-          left: `${(100 * slice.startPosition) / duration}%`,
+          left: `${positionToPx(slice.startPosition)}px`,
         }}
       >
         <div className="absolute top-1/4 h-1/2 w-full rounded-e-md bg-white"></div>
@@ -450,7 +481,7 @@ function SlicesLayer({ slices, onChange, duration }: SlicesLayerProps) {
         {...bindDrag(i, "end")}
         className="absolute top-0 h-full w-4 touch-none border-e border-white"
         style={{
-          left: `calc(${(100 * slice.endPosition) / duration}% - 1rem)`,
+          left: `calc(${positionToPx(slice.endPosition)}px - 1rem)`,
         }}
       >
         <div className="absolute top-1/4 h-1/2 w-full rounded-s-md bg-white"></div>
@@ -494,7 +525,8 @@ type TrackProgressProps = {
   isSlicing: boolean;
   slices: Slice[];
   onSlicesChange: (slices: Slice[]) => void;
-  // onSlice: (slice: Slice) => void;
+  onSlicingStart: () => void;
+  onSlicingEnd: () => void;
 };
 function TrackProgress({
   className,
@@ -505,7 +537,8 @@ function TrackProgress({
   isSlicing = false,
   slices,
   onSlicesChange,
-  // onSlice,
+  onSlicingStart,
+  onSlicingEnd,
 }: TrackProgressProps) {
   const divRef = useRef<HTMLDivElement>(null);
 
@@ -529,26 +562,35 @@ function TrackProgress({
     };
   }, []);
 
+  const positionToPx = (position: number) => {
+    const containerDims = divRef.current?.getBoundingClientRect();
+    if (!containerDims) return 0;
+    const { width: viewportWidth } = containerDims;
+
+    return scaleX * ((viewportWidth * position) / duration) + offsetX * scaleX;
+  };
+  const pxToPosition = (px: number) => {
+    const containerDims = divRef.current?.getBoundingClientRect();
+    if (!containerDims) return 0;
+    const { width: viewportWidth } = containerDims;
+
+    const scaledPx = px / scaleX + offsetX / scaleX;
+    const position = (duration * scaledPx) / viewportWidth;
+    return position;
+  };
+
   useGesture(
     {
       onDrag: ({ xy: [x], currentTarget }) => {
         if (!(currentTarget instanceof HTMLDivElement)) return;
         if (isSlicing) return;
 
-        const boundingRect = currentTarget.getBoundingClientRect();
-        const clickXRelativeToStart = x - boundingRect.left;
-        const width = boundingRect.right - boundingRect.left;
-        const progressRatio = clickXRelativeToStart / width;
-        const newPosition = progressRatio * duration;
+        const newPosition = pxToPosition(x);
         void player.seek(newPosition);
       },
       onMove: ({ xy: [x], currentTarget }) => {
         if (!(currentTarget instanceof HTMLDivElement)) return;
-        const boundingRect = currentTarget.getBoundingClientRect();
-        const clickXRelativeToStart = x - boundingRect.left;
-        const width = boundingRect.right - boundingRect.left;
-        const progressRatio = clickXRelativeToStart / width;
-        const newPosition = progressRatio * duration;
+        const newPosition = pxToPosition(x);
         setCursorPosition(newPosition);
       },
       onPointerDown: ({ event }) => {
@@ -557,21 +599,11 @@ function TrackProgress({
         const currentTarget = event.currentTarget as HTMLDivElement;
         if (!currentTarget) return;
 
-        const boundingRect = currentTarget.getBoundingClientRect();
-        const clickXRelativeToStart = event.pageX - boundingRect.left;
-        const width = boundingRect.right - boundingRect.left;
-        const progressRatio = clickXRelativeToStart / width;
-        const newPosition = progressRatio * duration;
+        const newPosition = pxToPosition(event.x);
 
         if (!draftSliceAnchorPosition) {
           setDraftSliceAnchorPosition(newPosition);
         } else {
-          // onSlice({
-          //   id: nanoid(),
-          //   startPosition: Math.min(newPosition, draftSliceAnchorPosition),
-          //   endPosition: Math.max(newPosition, draftSliceAnchorPosition),
-          //   shouldPlay: false,
-          // });
           const newSlice = {
             id: nanoid(),
             startPosition: Math.min(newPosition, draftSliceAnchorPosition),
@@ -609,8 +641,6 @@ function TrackProgress({
     },
   );
 
-  console.log(offsetX, scaleX);
-
   return (
     <div
       ref={divRef}
@@ -634,10 +664,10 @@ function TrackProgress({
       )}
       <div
         className={cn(
-          "absolute top-0 h-full w-px bg-white",
+          "absolute top-1/4 h-1/2 w-px bg-white",
           !isSlicing ? "hidden" : "",
         )}
-        style={{ left: `${(100 * cursorPosition) / duration}%` }}
+        style={{ left: `${positionToPx(cursorPosition)}px` }}
       ></div>
       {draftSliceAnchorPosition && (
         <div
@@ -645,15 +675,17 @@ function TrackProgress({
             "absolute top-0 h-full w-px bg-white",
             !isSlicing ? "hidden" : "",
           )}
-          style={{ left: `${(100 * draftSliceAnchorPosition) / duration}%` }}
+          style={{ left: `${positionToPx(draftSliceAnchorPosition)}px` }}
         ></div>
       )}
       <SlicesLayer
         slices={slices ?? []}
         duration={duration}
+        onSlicingStart={onSlicingStart}
         onChange={(changedSlices: Slice[]) => {
           onSlicesChange(changedSlices);
         }}
+        onSlicingEnd={onSlicingEnd}
         offsetX={offsetX}
         scaleX={scaleX}
       />
