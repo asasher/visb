@@ -616,7 +616,7 @@ function TrackProgress({
 
   useGesture(
     {
-      onDrag: ({ xy: [x], delta, pinching, moving, touches, tap }) => {
+      onDrag: ({ xy: [x], delta, pinching, tap }) => {
         if (isSlicing) return;
         if (pinching) return;
 
@@ -627,7 +627,7 @@ function TrackProgress({
         }
 
         const [dx] = delta;
-        onPan(dx);
+        onPan(-dx);
       },
       onMove: ({ xy: [x] }) => {
         console.log("Moving");
@@ -644,10 +644,6 @@ function TrackProgress({
     },
     {
       target: divRef,
-      drag: {
-        delay: 180,
-        filterTaps: true,
-      },
       pinch: {
         scaleBounds: {
           min: 1,
