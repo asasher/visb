@@ -585,7 +585,7 @@ function TrackProgress({
     return _pxToPosition(px, viewportWidth, duration, scaleX, offsetX);
   };
 
-  const onTwoFingerTouchMove = (dx: number) => {
+  const onPan = (dx: number) => {
     const boundingRect = divRef.current?.getBoundingClientRect();
     if (!boundingRect) return;
     setOffsetX((prevOffsetX) =>
@@ -616,15 +616,18 @@ function TrackProgress({
 
   useGesture(
     {
-      onDrag: ({ xy: [x], pinching, moving, touches }) => {
+      onDrag: ({ xy: [x], delta, pinching, moving, touches, tap }) => {
         if (isSlicing) return;
         if (pinching) return;
-        if (touches === 2 && moving) {
-          onTwoFingerTouchMove(x);
+
+        if (tap) {
+          const newPosition = pxToPosition(x);
+          void player.seek(newPosition);
           return;
         }
-        const newPosition = pxToPosition(x);
-        void player.seek(newPosition);
+
+        const [dx] = delta;
+        onPan(dx);
       },
       onMove: ({ xy: [x] }) => {
         console.log("Moving");
@@ -643,6 +646,7 @@ function TrackProgress({
       target: divRef,
       drag: {
         delay: 180,
+        filterTaps: true,
       },
       pinch: {
         scaleBounds: {
