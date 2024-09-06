@@ -585,7 +585,7 @@ function TrackProgress({
     return _pxToPosition(px, viewportWidth, duration, scaleX, offsetX);
   };
 
-  const onWheelOrTwoFingerDrag = (dx: number) => {
+  const onTwoFingerTouchMove = (dx: number) => {
     const boundingRect = divRef.current?.getBoundingClientRect();
     if (!boundingRect) return;
     setOffsetX((prevOffsetX) =>
@@ -596,49 +596,44 @@ function TrackProgress({
     );
   };
 
+  const makeSlice = (x: number) => {
+    const newPosition = pxToPosition(x);
+
+    if (!draftSliceAnchorPosition) {
+      setDraftSliceAnchorPosition(newPosition);
+    } else {
+      const newSlice = {
+        id: nanoid(),
+        startPosition: Math.min(newPosition, draftSliceAnchorPosition),
+        endPosition: Math.max(newPosition, draftSliceAnchorPosition),
+        shouldPlay: false,
+      };
+      onSlicesChange([...slices, newSlice]);
+      setDraftSliceAnchorPosition(null);
+      onSlicingEnd();
+    }
+  };
+
   useGesture(
     {
-      onDrag: ({ xy: [x], currentTarget, touches }) => {
-        if (touches === 2) {
-          onWheelOrTwoFingerDrag(x);
+      onDrag: ({ xy: [x], pinching, moving, touches }) => {
+        if (isSlicing) return;
+        if (pinching) return;
+        if (touches === 2 && moving) {
+          onTwoFingerTouchMove(x);
           return;
         }
-        if (isSlicing) return;
-
         const newPosition = pxToPosition(x);
         void player.seek(newPosition);
       },
-      onMove: ({ xy: [x], currentTarget }) => {
+      onMove: ({ xy: [x] }) => {
+        console.log("Moving");
         const newPosition = pxToPosition(x);
         setCursorPosition(newPosition);
       },
       onPointerDown: ({ event }) => {
         if (!isSlicing) return;
-
-        const currentTarget = event.currentTarget as HTMLDivElement;
-        if (!currentTarget) return;
-
-        const newPosition = pxToPosition(event.x);
-
-        if (!draftSliceAnchorPosition) {
-          setDraftSliceAnchorPosition(newPosition);
-        } else {
-          const newSlice = {
-            id: nanoid(),
-            startPosition: Math.min(newPosition, draftSliceAnchorPosition),
-            endPosition: Math.max(newPosition, draftSliceAnchorPosition),
-            shouldPlay: false,
-          };
-          onSlicesChange([...slices, newSlice]);
-          setDraftSliceAnchorPosition(null);
-          onSlicingEnd();
-        }
-      },
-      onWheel: ({ delta: [dx], event }) => {
-        const currentTarget = event.currentTarget as HTMLDivElement;
-        if (!currentTarget) return;
-
-        onWheelOrTwoFingerDrag(dx);
+        makeSlice(event.x);
       },
       onPinch: ({ offset: [scale] }) => {
         setScaleX(scale);
