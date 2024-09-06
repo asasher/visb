@@ -641,6 +641,9 @@ function TrackProgress({
     },
     {
       target: divRef,
+      drag: {
+        delay: 180,
+      },
       pinch: {
         scaleBounds: {
           min: 1,
