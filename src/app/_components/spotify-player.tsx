@@ -13,6 +13,7 @@ import { Button } from "~/components/ui/button";
 import { Loader2, Music, Slice } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { SpotifyPlaylist } from "./spotify-playlist";
+import TapTempoButton from "./tap-tempo-button";
 
 // {
 //   uri: "spotify:track:xxxx", // Spotify URI
@@ -324,18 +325,21 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
                 nextTrack={nextTrack}
                 prevTrack={prevTrack}
               />
-              <Button
-                variant={"ghost"}
-                className="rounded-none px-5 py-1 text-white"
-                onClick={() => setIsSlicing(!isSlicing)}
-                disabled={isSlicing || isSavingSlice || isSlicesQueryLoading}
-              >
-                {isSavingSlice || isSlicesQueryLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Slice className="h-4 w-4" />
-                )}
-              </Button>
+              <div className="flex">
+                <Button
+                  variant={"ghost"}
+                  className="rounded-none px-5 py-1 text-white"
+                  onClick={() => setIsSlicing(!isSlicing)}
+                  disabled={isSlicing || isSavingSlice || isSlicesQueryLoading}
+                >
+                  {isSavingSlice || isSlicesQueryLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Slice className="h-4 w-4" />
+                  )}
+                </Button>
+                <TapTempoButton className="rounded-none px-4 py-1 text-white" />
+              </div>
             </div>
             <TrackInfo
               className="px-4 pb-2"
