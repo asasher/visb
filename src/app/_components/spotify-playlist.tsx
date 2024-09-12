@@ -37,10 +37,29 @@ export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
 
   return (
     <>
+      {activePlaylist && (
+        <div className="relative mx-4 flex h-fit overflow-hidden rounded-none rounded-t-md bg-green-500 p-0 text-left text-white">
+          <PlaylistCard
+            playlist={activePlaylist}
+            className="pointer-events-none"
+          />
+          <Button
+            className="rounded-none"
+            onClick={() => {
+              setActivePlaylistId(null);
+            }}
+            variant={"ghost"}
+            disabled={isTracksLoading || isPlaylistsLoading}
+          >
+            {"<--"}
+          </Button>
+        </div>
+      )}
       <ScrollArea
         className={cn(
-          "rounded-md border border-none p-4",
+          "mx-4 mb-4 rounded-md border border-none",
           isTracksLoading ? "animate-pulse" : "",
+          activePlaylist ? "rounded-t-none" : "",
         )}
       >
         {!activePlaylist &&
@@ -97,23 +116,6 @@ export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
             </Button>
           ))}
       </ScrollArea>
-      {activePlaylist && (
-        <Button
-          className="relative h-fit w-full rounded-none bg-slate-200 p-0 text-left text-black hover:bg-slate-300"
-          onClick={() => {
-            setActivePlaylistId(null);
-          }}
-          disabled={isTracksLoading || isPlaylistsLoading}
-        >
-          <PlaylistCard
-            playlist={activePlaylist}
-            className="pointer-events-none"
-          />
-          <p className="pointer-events-none absolute right-4 top-1 cursor-pointer text-3xl font-black text-white">
-            X
-          </p>
-        </Button>
-      )}
     </>
   );
 }

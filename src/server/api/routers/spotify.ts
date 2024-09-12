@@ -40,13 +40,12 @@ export const spotifyRouter = createTRPCRouter({
       if (playbackState?.device.id !== input.deviceId) {
         await sdk.player.transferPlayback([input.deviceId], true);
       }
-      if (input.trackUri) {
-        await sdk.player.startResumePlayback(input.deviceId, undefined, [
-          input.trackUri,
-        ]);
-      } else if (input.playlistUri) {
-        await sdk.player.startResumePlayback(input.deviceId, input.playlistUri);
-      }
+      await sdk.player.startResumePlayback(
+        input.deviceId,
+        input.playlistUri,
+        undefined,
+        input.trackUri ? { uri: input.trackUri } : undefined,
+      );
     }),
   addToQueue: protectedProcedure
     .input(

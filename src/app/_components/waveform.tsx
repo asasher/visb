@@ -126,7 +126,7 @@ export function Waveform({
 
   return (
     <canvas
-      className={cn("h-full w-full", className)}
+      className={cn("h-full w-full touch-none", className)}
       ref={canvasRef}
       width={worldWidth}
       height={worldHeight}

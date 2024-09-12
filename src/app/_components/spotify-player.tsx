@@ -193,7 +193,7 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
   const { mutate: upsertSlices, isPending: isSavingSlice } =
     api.tracks.upsert.useMutation({
       async onMutate(newValues) {
-        await utils.tracks.get.invalidate();
+        await utils.tracks.get.cancel(track?.id);
         const prevData = utils.tracks.get.getData(newValues.trackId);
         utils.tracks.get.setData(newValues.trackId, () => newValues.slices);
         return { prevData };
@@ -205,7 +205,7 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
         void utils.tracks.get.invalidate();
       },
     });
-  const debouncedUpsertSlices = useDebouncedCallback(upsertSlices, 500);
+  const debouncedUpsertSlices = useDebouncedCallback(upsertSlices, 1000);
   const setSlices = (slices: Slice[]) => {
     if (!track?.id) return;
     utils.tracks.get.setData(track.id, () => slices);
@@ -297,20 +297,6 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
       )}
       {playerRef.current && track && (
         <div className="grid w-full grid-cols-12 items-end justify-center">
-          <div className="col-span-full flex items-center justify-end bg-green-600 px-4 py-2">
-            <Button
-              variant={"outline"}
-              className="border-none p-3"
-              onClick={() => setIsSlicing(!isSlicing)}
-              disabled={isSlicing || isSavingSlice || isSlicesQueryLoading}
-            >
-              {isSavingSlice || isSlicesQueryLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Slice className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
           <div className="relative col-span-full h-20 overflow-hidden">
             <TrackProgress
               player={playerRef.current}
@@ -326,23 +312,37 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
               }}
             />
           </div>
-          <TrackCover className="col-span-2 h-28" track={track} />
+          <TrackCover className="col-span-2 h-24" track={track} />
           <div
-            className={`relative col-start-3 -col-end-1 flex h-full w-full justify-between bg-slate-700`}
+            className={`relative col-start-3 -col-end-1 flex h-full w-full flex-col justify-between bg-slate-700`}
           >
+            <div className="flex">
+              <TrackControls
+                className="flex-grow"
+                paused={paused}
+                player={playerRef.current}
+                nextTrack={nextTrack}
+                prevTrack={prevTrack}
+              />
+              <Button
+                variant={"ghost"}
+                className="rounded-none px-5 py-1 text-white"
+                onClick={() => setIsSlicing(!isSlicing)}
+                disabled={isSlicing || isSavingSlice || isSlicesQueryLoading}
+              >
+                {isSavingSlice || isSlicesQueryLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Slice className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
             <TrackInfo
-              className="absolute bottom-2 left-2"
+              className="px-4 pb-2"
               track={track}
               position={position}
               duration={duration}
               trackAnalysis={trackAnalysis}
-            />
-            <TrackControls
-              className="absolute bottom-2 right-2"
-              paused={paused}
-              player={playerRef.current}
-              nextTrack={nextTrack}
-              prevTrack={prevTrack}
             />
           </div>
         </div>
@@ -722,19 +722,20 @@ function TrackInfo({
 }: TrackInfoProps) {
   return (
     <div className={cn("text-xs text-white", className)}>
-      <p className="text-base">{track?.name}</p>
-      <p>
+      <p className="mb-1 text-base">{track?.name}</p>
+
+      <p className="me-5 inline-flex items-center text-xs">
         {Math.round(position / 1000)}/{Math.round(duration / 1000)}
       </p>
       {trackAnalysis && (
-        <div className="mt-4">
-          <p className="me-4 inline-flex items-center text-xs">
+        <>
+          <p className="me-2 inline-flex items-center text-xs">
             {Math.floor(trackAnalysis.tempo)} BPM
           </p>
           <p className="inline-flex items-center text-xs">
             {Math.floor(trackAnalysis.time_signature)}/4
           </p>
-        </div>
+        </>
       )}
     </div>
   );
@@ -755,37 +756,42 @@ function TrackControls({
   className,
 }: TrackControlsProps) {
   return (
-    <div className={cn("flex flex-col items-end text-white", className)}>
-      <button
-        className="px-4 py-1"
+    <div className={cn("flex items-end justify-between text-white", className)}>
+      <Button
+        variant={"ghost"}
+        className="me-5 rounded-none px-4 py-1"
         onClick={() => {
           void player.togglePlay();
         }}
       >
         {paused ? "Play" : "Pause"}
-      </button>
-      {prevTrack && (
-        <button
-          className="group px-4 py-1"
-          onClick={() => {
-            void player.previousTrack();
-          }}
-        >
-          <span className="group-hover:me-3 sm:me-2">{"<--"}</span>
-          <span className="hidden sm:inline">{prevTrack.name}</span>
-        </button>
-      )}
-      {nextTrack && (
-        <button
-          className="group px-4 py-1"
-          onClick={() => {
-            void player.nextTrack();
-          }}
-        >
-          <span className="hidden sm:inline">{nextTrack.name}</span>
-          <span className="ms-2 group-hover:ms-3">{"-->"}</span>
-        </button>
-      )}
+      </Button>
+      <div>
+        {prevTrack && (
+          <Button
+            variant={"ghost"}
+            className="rounded-none px-2 py-1"
+            onClick={() => {
+              void player.previousTrack();
+            }}
+          >
+            <span className="sm:me-2">{"<--"}</span>
+            <span className="hidden sm:inline">{prevTrack.name}</span>
+          </Button>
+        )}
+        {nextTrack && (
+          <Button
+            variant={"ghost"}
+            className="rounded-none px-4 py-1"
+            onClick={() => {
+              void player.nextTrack();
+            }}
+          >
+            <span className="hidden sm:inline">{nextTrack.name}</span>
+            <span className="sm:ms-2">{"-->"}</span>
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
