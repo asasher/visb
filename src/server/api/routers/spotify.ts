@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import IntervalTree from "@flatten-js/interval-tree";
 import { isDefined } from "~/lib/utils";
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { tracks } from "~/server/db/schema";
 import { getSpotifySdk } from "~/server/lib/spotify";
 import { Market } from "@spotify/web-api-ts-sdk";
@@ -131,7 +131,6 @@ export const spotifyRouter = createTRPCRouter({
         limit,
         cursor,
       );
-      console.log(`Spotify Tracks`, playlistTracks.items);
       const trackIds = playlistTracks.items.map((track) => track.track.id);
       const trackFeatures = await sdk.tracks.audioFeatures(trackIds);
       const ourTracks = await ctx.db.query.tracks.findMany({
@@ -197,12 +196,17 @@ export const spotifyRouter = createTRPCRouter({
         };
       });
 
+      const ourTrack = await ctx.db.query.tracks.findFirst({
+        where: eq(tracks.spotifyTrackId, trackId),
+      });
+
       return {
         ...features,
         numBeats: Math.round(
           (features.duration_ms / (1000 * 60)) * Math.round(features.tempo),
         ),
         beats: normalizedBeats,
+        ...ourTrack,
       };
     }),
 });

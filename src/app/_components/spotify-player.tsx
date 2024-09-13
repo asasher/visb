@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef, Fragment } from "react";
 import { useDrag, useGesture } from "@use-gesture/react";
 import { nanoid } from "nanoid";
 import { useDebouncedCallback } from "use-debounce";
-import { api } from "~/trpc/react";
+import { api, RouterOutputs } from "~/trpc/react";
 import { useAnimationFrame } from "~/lib/hooks";
 import { Waveform } from "./waveform";
 import { cn } from "~/lib/utils";
@@ -270,7 +270,6 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
       });
 
       player.addListener("player_state_changed", (state) => {
-        console.log("Player state changed", state);
         setState((prevState) => ({
           ...prevState,
           paused: state?.paused ?? prevState.paused,
@@ -346,6 +345,7 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
                 <TapTempoButton
                   className="px-4 py-1 text-white"
                   spotifyTrackId={track.id}
+                  playbackState={state}
                 />
               </div>
             </div>
@@ -530,18 +530,13 @@ function TrackCover({ track, className }: TrackCoverProps) {
   );
 }
 
+type TrackAnalysis = RouterOutputs["spotify"]["analysis"];
+
 type TrackProgressProps = {
   className?: string;
   position: number;
   duration: number;
-  trackAnalysis?: {
-    tempo: number;
-    time_signature: number;
-    beats: {
-      position: number;
-      value: number;
-    }[];
-  } | null;
+  trackAnalysis?: TrackAnalysis;
   player: Player;
   isSlicing: boolean;
   slices: Slice[];
@@ -630,7 +625,6 @@ function TrackProgress({
         onPan(-dx);
       },
       onMove: ({ xy: [x] }) => {
-        console.log("Moving");
         const newPosition = pxToPosition(x);
         setCursorPosition(newPosition);
       },
@@ -668,7 +662,8 @@ function TrackProgress({
             position={position}
             duration={duration}
             beats={trackAnalysis.beats}
-            tempo={trackAnalysis.tempo}
+            tempo={trackAnalysis.userTapTempo ?? trackAnalysis.tempo}
+            beatOffset={trackAnalysis.beatOffset ?? 0}
             offsetX={offsetX}
             scaleX={scaleX}
           />

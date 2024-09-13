@@ -5,11 +5,29 @@ import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
+function getFirstBeatOffset(
+  positionOfKnownBeat: number,
+  tapTempo: number,
+): number {
+  const timeBetweenBeats = 60000 / tapTempo;
+  // Take out all the beats and remainder is the offset
+  const firstBeatOffset = positionOfKnownBeat % timeBetweenBeats;
+  return firstBeatOffset;
+}
+
 type TapTempoButtonProps = {
   className?: string;
   spotifyTrackId: string;
+  playbackState: {
+    position: number;
+    duration: number;
+  };
 };
-const TapTempoButton = ({ className, spotifyTrackId }: TapTempoButtonProps) => {
+const TapTempoButton = ({
+  className,
+  spotifyTrackId,
+  playbackState,
+}: TapTempoButtonProps) => {
   const [lastTap, setLastTap] = useState<number | null>(null);
   const [bpm, setBpm] = useState<number | null>(null);
   const [tapCount, setTapCount] = useState<number>(0);
@@ -42,10 +60,12 @@ const TapTempoButton = ({ className, spotifyTrackId }: TapTempoButtonProps) => {
         (avgInterval * tapCount + interval) / (tapCount + 1);
       setAvgInterval(newAvgInterval);
       const newBpm = 60000 / newAvgInterval; // Calculate BPM based on average interval
+      const beatOffset = getFirstBeatOffset(playbackState.position, newBpm);
       setBpm(newBpm); // Calculate BPM based on average interval
       setTrackTempoDebounced({
         spotifyTrackId,
         tapTempo: newBpm,
+        beatOffset: beatOffset,
       });
     }
 
@@ -66,9 +86,10 @@ const TapTempoButton = ({ className, spotifyTrackId }: TapTempoButtonProps) => {
   const reset = () => {
     setLastTap(null);
     setBpm(null); // Reset BPM to null
-    setTrackTempoDebounced({
+    setTrackTempo({
       spotifyTrackId,
       tapTempo: null,
+      beatOffset: null,
     });
     setTapCount(0);
     setAvgInterval(0);

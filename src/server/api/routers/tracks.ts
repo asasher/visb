@@ -12,29 +12,29 @@ export const tracksRouter = createTRPCRouter({
       z.object({
         spotifyTrackId: z.string(),
         tapTempo: z.number().nullable(),
+        beatOffset: z.number().nullable(),
       }),
     )
-    .mutation(async ({ ctx, input: { spotifyTrackId, tapTempo } }) => {
-      const userId = ctx.session.user.id;
-      const sdk = await getSpotifySdk(userId);
-      const track = await sdk.tracks.get(spotifyTrackId);
-      console.log("Spotify Track", track);
-
-      console.log(
-        "The Other Track",
-        await sdk.tracks.get("5CGaQfqhV4uwhF5MMkzZNi"),
-      );
-      await ctx.db
-        .insert(tracks)
-        .values({
-          spotifyTrackId,
-          userTapTempo: tapTempo ? parseInt(tapTempo.toFixed(0)) : null,
-        })
-        .onConflictDoUpdate({
-          target: [tracks.spotifyTrackId],
-          set: buildConflictUpdateColumns(tracks, ["userTapTempo"]),
-        });
-    }),
+    .mutation(
+      async ({ ctx, input: { spotifyTrackId, tapTempo, beatOffset } }) => {
+        const userId = ctx.session.user.id;
+        const sdk = await getSpotifySdk(userId);
+        await ctx.db
+          .insert(tracks)
+          .values({
+            spotifyTrackId,
+            userTapTempo: tapTempo ? parseInt(tapTempo.toFixed(0)) : null,
+            beatOffset: beatOffset ? parseInt(beatOffset.toFixed(0)) : null,
+          })
+          .onConflictDoUpdate({
+            target: [tracks.spotifyTrackId],
+            set: buildConflictUpdateColumns(tracks, [
+              "userTapTempo",
+              "beatOffset",
+            ]),
+          });
+      },
+    ),
   getSlices: protectedProcedure
     .input(z.string().optional())
     .query(async ({ ctx, input: trackId }) => {

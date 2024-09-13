@@ -13,6 +13,7 @@ type WaveformProps = {
     value: number; // value between 0 and 1, representing loudness or amplitude etc
   }[];
   tempo: number;
+  beatOffset: number;
   position: number;
   offsetX: number;
   scaleX: number;
@@ -26,6 +27,7 @@ export function Waveform({
   tempo,
   offsetX,
   scaleX,
+  beatOffset,
 }: WaveformProps) {
   const [worldWidth, setWorldWidth] = useState(100);
   const [worldHeight, setWorldHeight] = useState(100);
@@ -71,38 +73,52 @@ export function Waveform({
       // Beatgrid
       ctx.lineWidth = 1 / scaleX;
       ctx.strokeStyle = colors.green[700];
-      const beatsBasedOnTempo = Math.floor((duration / 60000) * tempo);
 
-      for (let i = 0; i < beatsBasedOnTempo; i++) {
+      const durationBetweenBeats = Math.floor(60000 / tempo);
+      const numBeatsBasedOnTempo = Math.floor(duration / durationBetweenBeats);
+
+      console.log(
+        "Beats",
+        durationBetweenBeats,
+        numBeatsBasedOnTempo,
+        beatOffset,
+        duration,
+      );
+
+      let beatPosition = Math.round(beatOffset ?? 0);
+      for (let i = 0; i < numBeatsBasedOnTempo; i++) {
+        beatPosition += durationBetweenBeats;
         if (i % 4 !== 0) continue;
 
-        const position = i / beatsBasedOnTempo;
-        const x = canvas.width * position;
+        const x = canvas.width * (beatPosition / duration);
 
         const y = 0.5 * canvas.height;
+
         ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x, y);
         ctx.stroke();
+        ctx.closePath();
       }
 
+      beatPosition = Math.round(beatOffset ?? 0);
       let dv = -0.1;
       let v = 0.1;
-      for (let i = 0; i < beatsBasedOnTempo; i++) {
+      for (let i = 0; i < numBeatsBasedOnTempo; i++) {
+        beatPosition += durationBetweenBeats;
         if (i % 4 === 0) {
           dv = -dv;
           continue;
         }
 
-        const position = i / beatsBasedOnTempo;
-        const x = canvas.width * position;
-
+        const x = canvas.width * (beatPosition / duration);
         const y = v * canvas.height;
 
         ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x, y);
         ctx.stroke();
+        ctx.closePath();
 
         v = v + dv;
       }
