@@ -328,7 +328,7 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
               <div className="flex">
                 <Button
                   variant={"ghost"}
-                  className="rounded-none px-5 py-1 text-white"
+                  className="px-5 py-1 text-white"
                   onClick={() => setIsSlicing(!isSlicing)}
                   disabled={isSlicing || isSavingSlice || isSlicesQueryLoading}
                 >
@@ -338,7 +338,7 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
                     <Slice className="h-4 w-4" />
                   )}
                 </Button>
-                <TapTempoButton className="rounded-none px-4 py-1 text-white" />
+                <TapTempoButton className="px-4 py-1 text-white" />
               </div>
             </div>
             <TrackInfo
@@ -763,7 +763,7 @@ function TrackControls({
     <div className={cn("flex items-end justify-between text-white", className)}>
       <Button
         variant={"ghost"}
-        className="me-5 rounded-none px-4 py-1"
+        className="me-5 px-4 py-1"
         onClick={() => {
           void player.togglePlay();
         }}
@@ -774,7 +774,7 @@ function TrackControls({
         {prevTrack && (
           <Button
             variant={"ghost"}
-            className="rounded-none px-2 py-1"
+            className="px-2 py-1"
             onClick={() => {
               void player.previousTrack();
             }}
@@ -786,7 +786,7 @@ function TrackControls({
         {nextTrack && (
           <Button
             variant={"ghost"}
-            className="rounded-none px-4 py-1"
+            className="px-4 py-1"
             onClick={() => {
               void player.nextTrack();
             }}

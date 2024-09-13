@@ -31,20 +31,20 @@ export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
       },
     );
 
-  if (!playlists) return null;
-
-  const activePlaylist = playlists.items.find((x) => x.id === activePlaylistId);
+  const activePlaylist = playlists?.items.find(
+    (x) => x.id === activePlaylistId,
+  );
 
   return (
     <>
       {activePlaylist && (
-        <div className="relative mx-4 flex h-fit overflow-hidden rounded-none rounded-t-md bg-green-500 p-0 text-left text-white">
+        <div className="relative mx-4 flex h-[3.1rem] items-start justify-between overflow-hidden rounded-none rounded-t-md bg-green-500 p-0 text-left text-white">
           <PlaylistCard
             playlist={activePlaylist}
             className="pointer-events-none"
           />
           <Button
-            className="rounded-none"
+            className="rounded-none py-1"
             onClick={() => {
               setActivePlaylistId(null);
             }}
@@ -55,67 +55,84 @@ export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
           </Button>
         </div>
       )}
-      <ScrollArea
-        className={cn(
-          "mx-4 mb-4 rounded-md border border-none",
-          isTracksLoading ? "animate-pulse" : "",
-          activePlaylist ? "rounded-t-none" : "",
-        )}
-      >
-        {!activePlaylist &&
-          playlists.items.map((playlist) => (
-            <Button
-              className={cn(
-                "relative block h-fit w-full rounded-none border-none p-0 text-left text-black shadow-none odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200",
-              )}
-              onClick={() => {
-                setActivePlaylistId(playlist.id);
-                void playOnDevice({
-                  deviceId,
-                  playlistUri: playlist.uri,
-                });
-              }}
-              disabled={isTracksLoading || isPlaylistsLoading}
-              key={playlist.id}
-            >
-              <PlaylistCard
-                playlist={playlist}
-                className="pointer-events-none"
-              />
-              <p className="pointer-events-none absolute right-4 top-3 text-xs">
-                Play
-              </p>
-            </Button>
+      {(isPlaylistsLoading || isTracksLoading) && (
+        <div
+          className={cn(
+            "mx-4 mb-4 h-full animate-pulse rounded-md bg-slate-300",
+            activePlaylist ? "rounded-t-none" : "",
+          )}
+        >
+          {Array.from({ length: 20 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-10 w-full odd:bg-slate-100 even:bg-slate-50"
+            ></div>
           ))}
-        {!!tracks &&
-          tracks.items.map((track) => (
-            <Button
-              className={cn(
-                "relative block h-fit w-full rounded-none border-none p-0 text-left text-black shadow-none odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200",
-              )}
-              onClick={() =>
-                track.uri &&
-                playOnDevice({
-                  playlistUri: activePlaylist?.uri,
-                  trackUri: track.uri,
-                  deviceId,
-                })
-              }
-              disabled={
-                isTracksLoading || isPlaylistsLoading || isPlayOnDeviceLoading
-              }
-              key={track.id}
-            >
-              <TrackCard
-                track={track}
-                className="cursor-pointer odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200"
-              />
-              <p className="pointer-events-none absolute right-4 top-3 text-xs">
-                Play
-              </p>
-            </Button>
-          ))}
-      </ScrollArea>
+        </div>
+      )}
+      {playlists && (
+        <ScrollArea
+          className={cn(
+            "mx-4 mb-4 h-full rounded-md border border-none",
+            isTracksLoading ? "animate-pulse" : "",
+            activePlaylist ? "rounded-t-none" : "",
+          )}
+        >
+          {!activePlaylist &&
+            playlists.items.map((playlist) => (
+              <Button
+                className={cn(
+                  "relative block h-fit w-full rounded-none border-none p-0 text-left text-black shadow-none odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200",
+                )}
+                onClick={() => {
+                  setActivePlaylistId(playlist.id);
+                  void playOnDevice({
+                    deviceId,
+                    playlistUri: playlist.uri,
+                  });
+                }}
+                disabled={isTracksLoading || isPlaylistsLoading}
+                key={playlist.id}
+              >
+                <PlaylistCard
+                  playlist={playlist}
+                  className="pointer-events-none"
+                />
+                <p className="pointer-events-none absolute right-4 top-3 text-xs">
+                  Play
+                </p>
+              </Button>
+            ))}
+          {!!tracks &&
+            tracks.items.map((track) => (
+              <Button
+                className={cn(
+                  "relative block h-fit w-full rounded-none border-none p-0 text-left text-black shadow-none odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200",
+                )}
+                onClick={() =>
+                  track.uri &&
+                  playOnDevice({
+                    playlistUri: activePlaylist?.uri,
+                    trackUri: track.uri,
+                    deviceId,
+                  })
+                }
+                disabled={
+                  isTracksLoading || isPlaylistsLoading || isPlayOnDeviceLoading
+                }
+                key={track.id}
+              >
+                <TrackCard
+                  track={track}
+                  className="cursor-pointer odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200"
+                />
+                <p className="pointer-events-none absolute right-4 top-3 text-xs">
+                  Play
+                </p>
+              </Button>
+            ))}
+        </ScrollArea>
+      )}
     </>
   );
 }
