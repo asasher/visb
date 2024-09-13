@@ -6,6 +6,8 @@ import { env } from "~/env";
 import { getSpotifyTokenOrRefresh } from "~/server/auth";
 import IntervalTree from "@flatten-js/interval-tree";
 import { isDefined } from "~/lib/utils";
+import { inArray } from "drizzle-orm";
+import { tracks } from "~/server/db/schema";
 
 const getSpotifySdk = async (userId: string) => {
   const spotifyAccount = await getSpotifyTokenOrRefresh(userId);
@@ -143,14 +145,23 @@ export const spotifyRouter = createTRPCRouter({
       );
       const trackIds = playlistTracks.items.map((track) => track.track.id);
       const trackFeatures = await sdk.tracks.audioFeatures(trackIds);
+      const ourTracks = await ctx.db.query.tracks.findMany({
+        where: inArray(tracks.spotifyTrackId, trackIds),
+      });
+      console.log(`Got ${ourTracks.length} of our tracks`, trackIds);
+      const spotifyTracks = playlistTracks.items.map((track) => ({
+        id: track.track.id,
+        name: track.track.name,
+        imageUrl: track.track.album.images[0]?.url,
+        duration: track.track.duration_ms,
+        ...trackFeatures.find((feature) => feature.id === track.track.id),
+      }));
+      const combinedTracks = spotifyTracks.map((track) => ({
+        ...track,
+        ...ourTracks.find((ourTrack) => ourTrack.spotifyTrackId === track.id),
+      }));
       return {
-        items: playlistTracks.items.map((track) => ({
-          id: track.track.id,
-          name: track.track.name,
-          imageUrl: track.track.album.images[0]?.url,
-          duration: track.track.duration_ms,
-          ...trackFeatures.find((feature) => feature.id === track.track.id),
-        })),
+        items: combinedTracks,
         nextCursor: cursor + limit,
       };
     }),

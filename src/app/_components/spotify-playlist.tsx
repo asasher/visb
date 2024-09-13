@@ -190,6 +190,7 @@ type TrackCardProps = {
     imageUrl?: string;
     tempo?: number;
     time_signature?: number;
+    userTapTempo?: number | null;
   };
   className?: string;
   onClick?: () => void;
@@ -209,7 +210,7 @@ function TrackCard({ track, className, onClick }: TrackCardProps) {
       <div className="w-8/12 overflow-x-scroll">
         <p className="inline-flex text-sm">{track.name}</p>
         <p className="ms-4 inline-flex items-center text-xs">
-          {Math.round(track.tempo ?? 0)} BPM
+          {Math.round(track.userTapTempo ?? track.tempo ?? 0)} BPM
         </p>
         <p className="ms-2 inline-flex items-center text-xs">
           {track.time_signature}/4

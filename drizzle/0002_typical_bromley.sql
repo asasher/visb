@@ -1,0 +1,1 @@
+ALTER TABLE "visb_tracks" ALTER COLUMN "user_tap_tempo" SET DATA TYPE numeric;

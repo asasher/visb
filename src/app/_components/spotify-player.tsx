@@ -270,6 +270,7 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
       });
 
       player.addListener("player_state_changed", (state) => {
+        console.log("Player state changed", state);
         setState((prevState) => ({
           ...prevState,
           paused: state?.paused ?? prevState.paused,
@@ -342,7 +343,10 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
                     <Slice className="h-4 w-4" />
                   )}
                 </Button>
-                <TapTempoButton className="px-4 py-1 text-white" />
+                <TapTempoButton
+                  className="px-4 py-1 text-white"
+                  spotifyTrackId={track.id}
+                />
               </div>
             </div>
             <TrackInfo

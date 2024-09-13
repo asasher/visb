@@ -3,9 +3,28 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { buildConflictUpdateColumns } from "~/lib/utils";
 import { and, eq, inArray, not } from "drizzle-orm";
-import { trackSlices } from "~/server/db/schema";
+import { tracks, trackSlices } from "~/server/db/schema";
 
 export const tracksRouter = createTRPCRouter({
+  setTrackTempo: protectedProcedure
+    .input(
+      z.object({
+        spotifyTrackId: z.string(),
+        tapTempo: z.number().nullable(),
+      }),
+    )
+    .mutation(async ({ ctx, input: { spotifyTrackId, tapTempo } }) => {
+      await ctx.db
+        .insert(tracks)
+        .values({
+          spotifyTrackId,
+          userTapTempo: tapTempo ? parseInt(tapTempo.toFixed(0)) : null,
+        })
+        .onConflictDoUpdate({
+          target: [tracks.spotifyTrackId],
+          set: buildConflictUpdateColumns(tracks, ["userTapTempo"]),
+        });
+    }),
   getSlices: protectedProcedure
     .input(z.string().optional())
     .query(async ({ ctx, input: trackId }) => {

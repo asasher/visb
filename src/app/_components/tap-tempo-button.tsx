@@ -1,17 +1,30 @@
-import { Drum } from "lucide-react";
+import { Drum, Loader2 } from "lucide-react";
 import React, { useState, useRef } from "react";
+import { useDebouncedCallback } from "use-debounce";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
+import { api } from "~/trpc/react";
 
 type TapTempoButtonProps = {
   className?: string;
+  spotifyTrackId: string;
 };
-const TapTempoButton = ({ className }: TapTempoButtonProps) => {
+const TapTempoButton = ({ className, spotifyTrackId }: TapTempoButtonProps) => {
   const [lastTap, setLastTap] = useState<number | null>(null);
   const [bpm, setBpm] = useState<number | null>(null);
   const [tapCount, setTapCount] = useState<number>(0);
   const [avgInterval, setAvgInterval] = useState<number>(0);
   const pressTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const utils = api.useUtils();
+  const { mutate: setTrackTempo, isPending: isSavingTapTempo } =
+    api.tracks.setTrackTempo.useMutation({
+      async onSettled() {
+        await utils.spotify.invalidate();
+      },
+    });
+
+  const setTrackTempoDebounced = useDebouncedCallback(setTrackTempo, 5000);
 
   const handleTap = () => {
     const now = Date.now();
@@ -30,7 +43,10 @@ const TapTempoButton = ({ className }: TapTempoButtonProps) => {
       setAvgInterval(newAvgInterval);
       const newBpm = 60000 / newAvgInterval; // Calculate BPM based on average interval
       setBpm(newBpm); // Calculate BPM based on average interval
-      if (onTapTempoChange) onTapTempoChange(newBpm);
+      setTrackTempoDebounced({
+        spotifyTrackId,
+        tapTempo: newBpm,
+      });
     }
 
     setLastTap(now);
@@ -50,6 +66,10 @@ const TapTempoButton = ({ className }: TapTempoButtonProps) => {
   const reset = () => {
     setLastTap(null);
     setBpm(null); // Reset BPM to null
+    setTrackTempoDebounced({
+      spotifyTrackId,
+      tapTempo: null,
+    });
     setTapCount(0);
     setAvgInterval(0);
   };
@@ -65,7 +85,13 @@ const TapTempoButton = ({ className }: TapTempoButtonProps) => {
       onTouchStart={startPressTimer}
       onTouchEnd={cancelPressTimer}
     >
-      {bpm ? bpm.toFixed(0) : <Drum className="h-4 w-4" />}
+      {isSavingTapTempo ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : bpm ? (
+        bpm.toFixed(0)
+      ) : (
+        <Drum className="h-4 w-4" />
+      )}
     </Button>
   );
 };
