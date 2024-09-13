@@ -20,6 +20,29 @@ import { type AdapterAccount } from "next-auth/adapters";
  */
 export const createTable = pgTableCreator((name) => `visb_${name}`);
 
+export const tracks = createTable(
+  "tracks",
+  {
+    id: varchar("id", { length: 255 }).primaryKey(),
+    spotifyTrackId: text("spotify_track_id").notNull(),
+    userTapTempo: integer("user_tap_tempo"),
+    beatOffset: integer("beat_grid_offset"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).$onUpdate(
+      () => new Date(),
+    ),
+  },
+  (t) => ({
+    nameIndex: index(`tracks_spotifyTrackId_idx`).on(t.spotifyTrackId),
+    uniqueIndex: unique("tracks_id_spotifyTrackId_idx").on(
+      t.id,
+      t.spotifyTrackId,
+    ),
+  }),
+);
+
 export const trackSlices = createTable(
   "track_slices",
   {
