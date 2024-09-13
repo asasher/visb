@@ -188,28 +188,31 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
 
   const utils = api.useUtils();
   const { data: slices, isLoading: isSlicesQueryLoading } =
-    api.tracks.get.useQuery(track?.id, {
+    api.tracks.getSlices.useQuery(track?.id, {
       enabled: !!track,
     });
   const { mutate: upsertSlices, isPending: isSavingSlice } =
-    api.tracks.upsert.useMutation({
+    api.tracks.upsertSlices.useMutation({
       async onMutate(newValues) {
-        await utils.tracks.get.cancel(track?.id);
-        const prevData = utils.tracks.get.getData(newValues.trackId);
-        utils.tracks.get.setData(newValues.trackId, () => newValues.slices);
+        await utils.tracks.getSlices.cancel(track?.id);
+        const prevData = utils.tracks.getSlices.getData(newValues.trackId);
+        utils.tracks.getSlices.setData(
+          newValues.trackId,
+          () => newValues.slices,
+        );
         return { prevData };
       },
       onError(err, newValues, ctx) {
-        utils.tracks.get.setData(newValues.trackId, () => ctx?.prevData);
+        utils.tracks.getSlices.setData(newValues.trackId, () => ctx?.prevData);
       },
       onSettled() {
-        void utils.tracks.get.invalidate();
+        void utils.tracks.getSlices.invalidate();
       },
     });
   const debouncedUpsertSlices = useDebouncedCallback(upsertSlices, 1000);
   const setSlices = (slices: Slice[]) => {
     if (!track?.id) return;
-    utils.tracks.get.setData(track.id, () => slices);
+    utils.tracks.getSlices.setData(track.id, () => slices);
     debouncedUpsertSlices({
       trackId: track.id,
       slices,

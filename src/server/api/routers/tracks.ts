@@ -6,7 +6,7 @@ import { and, eq, inArray, not } from "drizzle-orm";
 import { trackSlices } from "~/server/db/schema";
 
 export const tracksRouter = createTRPCRouter({
-  get: protectedProcedure
+  getSlices: protectedProcedure
     .input(z.string().optional())
     .query(async ({ ctx, input: trackId }) => {
       if (!trackId) return [];
@@ -20,7 +20,7 @@ export const tracksRouter = createTRPCRouter({
         shouldPlay: slice.shouldPlay,
       }));
     }),
-  upsert: protectedProcedure
+  upsertSlices: protectedProcedure
     .input(
       z.object({
         trackId: z.string(),
