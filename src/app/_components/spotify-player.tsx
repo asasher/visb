@@ -292,7 +292,8 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
           <Music className="h-4 w-4" />
           <AlertTitle>{"Nothing's playing!"}</AlertTitle>
           <AlertDescription>
-            Head over to Spotify and connect to Rock DJ to start playing.
+            Head over to Spotify and connect to Rock DJ to start playing or
+            select one of your playlists above.
           </AlertDescription>
         </Alert>
       )}
