@@ -28,7 +28,9 @@ const TapTempoButton = ({ className }: TapTempoButtonProps) => {
       const newAvgInterval =
         (avgInterval * tapCount + interval) / (tapCount + 1);
       setAvgInterval(newAvgInterval);
-      setBpm(60000 / newAvgInterval); // Calculate BPM based on average interval
+      const newBpm = 60000 / newAvgInterval; // Calculate BPM based on average interval
+      setBpm(newBpm); // Calculate BPM based on average interval
+      if (onTapTempoChange) onTapTempoChange(newBpm);
     }
 
     setLastTap(now);

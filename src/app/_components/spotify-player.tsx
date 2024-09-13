@@ -564,18 +564,6 @@ function TrackProgress({
   const [offsetX, setOffsetX] = useState(0);
   const [scaleX, setScaleX] = useState(1);
 
-  useEffect(() => {
-    // Prevent browsers default pinching to zoom behavior
-    const wheelHandler = (e: WheelEvent) => {
-      e.preventDefault();
-    };
-    document.addEventListener("wheel", wheelHandler, { passive: false });
-
-    return () => {
-      document.removeEventListener("wheel", wheelHandler);
-    };
-  }, []);
-
   const positionToPx = (position: number) => {
     const containerDims = divRef.current?.getBoundingClientRect();
     if (!containerDims) return 0;

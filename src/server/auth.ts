@@ -162,7 +162,7 @@ export const authOptions: NextAuthOptions = {
       authorization: `https://accounts.spotify.com/authorize/?${new URLSearchParams(
         {
           scope:
-            "streaming user-read-private user-read-email playlist-read-private user-read-playback-state user-modify-playback-state playlist-read-collaborative",
+            "streaming user-read-private user-read-email playlist-read-private user-read-playback-state user-modify-playback-state playlist-read-collaborative playlist-modify-public playlist-modify-private",
         },
       ).toString()}`,
     }),

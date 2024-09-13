@@ -6,24 +6,7 @@ import { api } from "~/trpc/react";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
-
-function SkeletonPlaylist({ hasHeader }: { hasHeader: boolean }) {
-  return (
-    <div
-      className={cn(
-        "mx-4 mb-4 h-full animate-pulse rounded-md bg-slate-300",
-        hasHeader ? "rounded-t-none" : "",
-      )}
-    >
-      {Array.from({ length: 49 }).map((_, i) => (
-        <div
-          key={i}
-          className="h-10 w-full odd:bg-slate-100 even:bg-slate-50"
-        ></div>
-      ))}
-    </div>
-  );
-}
+import { ArrowDown01, Loader2 } from "lucide-react";
 
 type SpotifyPlaylistProps = {
   deviceId: string;
@@ -60,6 +43,11 @@ export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
           <PlaylistCard
             playlist={activePlaylist}
             className="pointer-events-none"
+          />
+          <SortPlaylistByTempoButton
+            className="px-4 py-1"
+            spotifyPlaylistId={activePlaylist.id}
+            disabled={isPlaylistsLoading || isTracksLoading}
           />
           <Button
             className="rounded-none py-1"
@@ -228,5 +216,62 @@ function TrackCard({ track, className, onClick }: TrackCardProps) {
         </p>
       </div>
     </div>
+  );
+}
+
+function SkeletonPlaylist({ hasHeader }: { hasHeader: boolean }) {
+  return (
+    <div
+      className={cn(
+        "mx-4 mb-4 h-full animate-pulse rounded-md bg-slate-300",
+        hasHeader ? "rounded-t-none" : "",
+      )}
+    >
+      {Array.from({ length: 49 }).map((_, i) => (
+        <div
+          key={i}
+          className="h-10 w-full odd:bg-slate-100 even:bg-slate-50"
+        ></div>
+      ))}
+    </div>
+  );
+}
+
+function SortPlaylistByTempoButton({
+  spotifyPlaylistId,
+  disabled,
+  className,
+}: {
+  spotifyPlaylistId: string;
+  disabled: boolean;
+  className: string;
+}) {
+  const utils = api.useUtils();
+  const { mutate: sortByTempo, isPending } =
+    api.spotify.sortByTempo.useMutation({
+      async onSettled() {
+        await utils.spotify.getPlaylistTracks.invalidate({
+          playlistId: spotifyPlaylistId,
+          cursor: 0,
+        });
+      },
+    });
+  return (
+    <Button
+      variant={"ghost"}
+      className={cn(className)}
+      onClick={() => {
+        sortByTempo({
+          spotifyPlaylistId,
+        });
+      }}
+      disabled={disabled}
+    >
+      {isPending ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <ArrowDown01 className="h-4 w-4" />
+      )}
+    </Button>
   );
 }

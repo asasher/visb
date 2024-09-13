@@ -20,11 +20,39 @@ const getSpotifySdk = async (userId: string) => {
     expires_in: spotifyAccount.expires_at! - Math.floor(Date.now() / 1000),
     refresh_token: spotifyAccount.refresh_token!,
   };
+
   const sdk = SpotifyApi.withAccessToken(env.SPOTIFY_CLIENT_ID, token);
   return sdk;
 };
 
 export const spotifyRouter = createTRPCRouter({
+  sortByTempo: protectedProcedure
+    .input(
+      z.object({
+        spotifyPlaylistId: z.string(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const userId = ctx.session.user.id;
+      const sdk = await getSpotifySdk(userId);
+      const tracks = await sdk.playlists.getPlaylistItems(
+        input.spotifyPlaylistId,
+      );
+      const features = await sdk.tracks.audioFeatures(
+        tracks.items.map((track) => track.track.id),
+      );
+      const trackTempos = tracks.items.map((track) => ({
+        uri: track.track.uri,
+        tempo:
+          features.find((feature) => feature.id === track.track.id)?.tempo ?? 0,
+      }));
+      const sortedTracks = trackTempos.sort((a, b) => a.tempo - b.tempo);
+      const sortTracksUris = sortedTracks.map((track) => track.uri);
+      console.log("Sorted tracks", sortTracksUris);
+      await sdk.playlists.updatePlaylistItems(input.spotifyPlaylistId, {
+        uris: sortTracksUris,
+      });
+    }),
   playOnDevice: protectedProcedure
     .input(
       z.object({
