@@ -10,5 +10,7 @@ It also shows analysis of tracks like BPM and beats etc.
 - [x] Show playlist and the queue with BPMs.
 - [x] ~~Quickly cycle through the playlist once to have the songs pre-loaded for playback.~~
 - [x] Add tap tempo to adjust the BPM.
-- [ ] Save Tap BPM and use it instead of track BPM to generate grid if available.
+- [x] Save Tap BPM
+- [ ] Generate Beat Grid based on user BPM
+- [x] Sometimes BPM is saved with bad id since the id of the track in the playlist is not playable in the user's market.
 - [ ] Add a button to set beatgrid offset.

@@ -24,7 +24,7 @@ const TapTempoButton = ({ className, spotifyTrackId }: TapTempoButtonProps) => {
       },
     });
 
-  const setTrackTempoDebounced = useDebouncedCallback(setTrackTempo, 5000);
+  const setTrackTempoDebounced = useDebouncedCallback(setTrackTempo, 3000);
 
   const handleTap = () => {
     const now = Date.now();
@@ -33,7 +33,7 @@ const TapTempoButton = ({ className, spotifyTrackId }: TapTempoButtonProps) => {
       const interval = now - lastTap;
 
       // If interval greater than a minute, reset BPM
-      if (interval > 60000) {
+      if (interval > 10000) {
         reset();
         return;
       }

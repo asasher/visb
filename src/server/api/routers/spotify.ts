@@ -1,31 +1,12 @@
 import { z } from "zod";
 
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { SpotifyApi } from "@spotify/web-api-ts-sdk";
-import { env } from "~/env";
-import { getSpotifyTokenOrRefresh } from "~/server/auth";
 import IntervalTree from "@flatten-js/interval-tree";
 import { isDefined } from "~/lib/utils";
 import { inArray } from "drizzle-orm";
 import { tracks } from "~/server/db/schema";
-
-const getSpotifySdk = async (userId: string) => {
-  const spotifyAccount = await getSpotifyTokenOrRefresh(userId);
-
-  if (!spotifyAccount) {
-    throw new Error("No spotify account found");
-  }
-
-  const token = {
-    access_token: spotifyAccount.access_token!,
-    token_type: spotifyAccount.token_type!,
-    expires_in: spotifyAccount.expires_at! - Math.floor(Date.now() / 1000),
-    refresh_token: spotifyAccount.refresh_token!,
-  };
-
-  const sdk = SpotifyApi.withAccessToken(env.SPOTIFY_CLIENT_ID, token);
-  return sdk;
-};
+import { getSpotifySdk } from "~/server/lib/spotify";
+import { Market } from "@spotify/web-api-ts-sdk";
 
 export const spotifyRouter = createTRPCRouter({
   sortByTempo: protectedProcedure
@@ -37,8 +18,10 @@ export const spotifyRouter = createTRPCRouter({
     .mutation(async ({ input, ctx }) => {
       const userId = ctx.session.user.id;
       const sdk = await getSpotifySdk(userId);
+      const spotifyUserProfile = await sdk.currentUser.profile();
       const tracks = await sdk.playlists.getPlaylistItems(
         input.spotifyPlaylistId,
+        spotifyUserProfile.country as Market,
       );
       const features = await sdk.tracks.audioFeatures(
         tracks.items.map((track) => track.track.id),
@@ -50,7 +33,6 @@ export const spotifyRouter = createTRPCRouter({
       }));
       const sortedTracks = trackTempos.sort((a, b) => a.tempo - b.tempo);
       const sortTracksUris = sortedTracks.map((track) => track.uri);
-      console.log("Sorted tracks", sortTracksUris);
       await sdk.playlists.updatePlaylistItems(input.spotifyPlaylistId, {
         uris: sortTracksUris,
       });
@@ -136,19 +118,20 @@ export const spotifyRouter = createTRPCRouter({
       const limit = 50;
       const userId = ctx.session.user.id;
       const sdk = await getSpotifySdk(userId);
+      const spotifyUserProfile = await sdk.currentUser.profile();
       const playlistTracks = await sdk.playlists.getPlaylistItems(
         playlistId,
-        undefined,
+        spotifyUserProfile.country as Market,
         undefined,
         limit,
         cursor,
       );
+      console.log(`Spotify Tracks`, playlistTracks.items);
       const trackIds = playlistTracks.items.map((track) => track.track.id);
       const trackFeatures = await sdk.tracks.audioFeatures(trackIds);
       const ourTracks = await ctx.db.query.tracks.findMany({
         where: inArray(tracks.spotifyTrackId, trackIds),
       });
-      console.log(`Got ${ourTracks.length} of our tracks`, trackIds);
       const spotifyTracks = playlistTracks.items.map((track) => ({
         id: track.track.id,
         name: track.track.name,

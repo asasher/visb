@@ -1,9 +1,10 @@
 import { z } from "zod";
 
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { buildConflictUpdateColumns } from "~/lib/utils";
 import { and, eq, inArray, not } from "drizzle-orm";
 import { tracks, trackSlices } from "~/server/db/schema";
+import { getSpotifySdk } from "~/server/lib/spotify";
+import { buildConflictUpdateColumns } from "~/server/db/utils";
 
 export const tracksRouter = createTRPCRouter({
   setTrackTempo: protectedProcedure
@@ -14,6 +15,15 @@ export const tracksRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input: { spotifyTrackId, tapTempo } }) => {
+      const userId = ctx.session.user.id;
+      const sdk = await getSpotifySdk(userId);
+      const track = await sdk.tracks.get(spotifyTrackId);
+      console.log("Spotify Track", track);
+
+      console.log(
+        "The Other Track",
+        await sdk.tracks.get("5CGaQfqhV4uwhF5MMkzZNi"),
+      );
       await ctx.db
         .insert(tracks)
         .values({
