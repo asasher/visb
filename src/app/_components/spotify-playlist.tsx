@@ -7,6 +7,24 @@ import { ScrollArea } from "~/components/ui/scroll-area";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
 
+function SkeletonPlaylist({ hasHeader }: { hasHeader: boolean }) {
+  return (
+    <div
+      className={cn(
+        "mx-4 mb-4 h-full animate-pulse rounded-md bg-slate-300",
+        hasHeader ? "rounded-t-none" : "",
+      )}
+    >
+      {Array.from({ length: 49 }).map((_, i) => (
+        <div
+          key={i}
+          className="h-10 w-full odd:bg-slate-100 even:bg-slate-50"
+        ></div>
+      ))}
+    </div>
+  );
+}
+
 type SpotifyPlaylistProps = {
   deviceId: string;
 };
@@ -56,19 +74,7 @@ export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
         </div>
       )}
       {(isPlaylistsLoading || isTracksLoading) && (
-        <div
-          className={cn(
-            "mx-4 mb-4 h-full animate-pulse rounded-md bg-slate-300",
-            activePlaylist ? "rounded-t-none" : "",
-          )}
-        >
-          {Array.from({ length: 20 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-10 w-full odd:bg-slate-100 even:bg-slate-50"
-            ></div>
-          ))}
-        </div>
+        <SkeletonPlaylist hasHeader={!!activePlaylist} />
       )}
       {playlists && (
         <ScrollArea
