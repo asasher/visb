@@ -19,17 +19,22 @@ export const spotifyRouter = createTRPCRouter({
       const userId = ctx.session.user.id;
       const sdk = await getSpotifySdk(userId);
       const spotifyUserProfile = await sdk.currentUser.profile();
-      const tracks = await sdk.playlists.getPlaylistItems(
+      const playlistTracks = await sdk.playlists.getPlaylistItems(
         input.spotifyPlaylistId,
         spotifyUserProfile.country as Market,
       );
-      const features = await sdk.tracks.audioFeatures(
-        tracks.items.map((track) => track.track.id),
-      );
-      const trackTempos = tracks.items.map((track) => ({
+      const trackIds = playlistTracks.items.map((track) => track.track.id);
+      const features = await sdk.tracks.audioFeatures(trackIds);
+      const ourTracks = await ctx.db.query.tracks.findMany({
+        where: inArray(tracks.spotifyTrackId, trackIds),
+      });
+      const trackTempos = playlistTracks.items.map((track) => ({
         uri: track.track.uri,
         tempo:
-          features.find((feature) => feature.id === track.track.id)?.tempo ?? 0,
+          ourTracks.find((x) => x.spotifyTrackId === track.track.id)
+            ?.userTapTempo ??
+          features.find((feature) => feature.id === track.track.id)?.tempo ??
+          0,
       }));
       const sortedTracks = trackTempos.sort((a, b) => a.tempo - b.tempo);
       const sortTracksUris = sortedTracks.map((track) => track.uri);
