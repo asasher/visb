@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef, Fragment } from "react";
 import { useDrag, useGesture } from "@use-gesture/react";
 import { nanoid } from "nanoid";
 import { useDebouncedCallback } from "use-debounce";
-import { api, RouterOutputs } from "~/trpc/react";
+import { api, type RouterOutputs } from "~/trpc/react";
 import { useAnimationFrame } from "~/lib/hooks";
 import { Waveform } from "./waveform";
 import { cn } from "~/lib/utils";
@@ -113,6 +113,14 @@ type ReadyNotReadyListener = (
   event: "ready" | "not_ready",
   cb: (data: { device_id: string }) => void,
 ) => void;
+type PlaybackErrorListener = (
+  event:
+    | "playback_error"
+    | "authentication_error"
+    | "initialization_error"
+    | "account_error",
+  cb: (data: { message: string }) => void,
+) => void;
 
 type PlayerProps = {
   name: string;
@@ -128,6 +136,7 @@ interface Player {
   getCurrentState(): Promise<WebPlaybackState>;
   connect: () => Promise<boolean>;
   addListener: ReadyNotReadyListener & PlayerStateChangedListener;
+  on: PlaybackErrorListener;
 }
 type PlayerConstructable = new (args: PlayerProps) => Player;
 type Spotify = {
@@ -270,6 +279,22 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
           ...prevState,
           deviceId: null,
         }));
+      });
+
+      player.on("playback_error", ({ message }) => {
+        console.error("Failed to perform playback", message);
+      });
+
+      player.on("authentication_error", ({ message }) => {
+        console.error("Failed to authenticate", message);
+      });
+
+      player.on("initialization_error", ({ message }) => {
+        console.error("Failed to initialize", message);
+      });
+
+      player.on("account_error", ({ message }) => {
+        console.error("Failed to authenticate", message);
       });
 
       player.addListener("player_state_changed", (state) => {
@@ -432,7 +457,7 @@ function SlicesLayer({
     if (!container) return;
     const { width } = container.getBoundingClientRect();
     setVw(width);
-  }, [divRef.current]);
+  }, []);
   const bindDrag = useDrag(
     ({ delta: [dx], args, currentTarget, first, last }) => {
       if (first) onSlicingStart();
@@ -491,7 +516,7 @@ function SlicesLayer({
     },
   );
 
-  return slices.map((slice, i) => (
+  return slices.map((slice) => (
     <Fragment key={slice.id}>
       <div
         ref={divRef}
@@ -532,6 +557,7 @@ function TrackCover({ track, className }: TrackCoverProps) {
     track?.album.images[0]?.url && (
       <div className={cn("relative h-full w-full", className)}>
         <Image
+          sizes="100%"
           className="object-cover"
           src={track.album.images[0].url}
           alt={track.name}

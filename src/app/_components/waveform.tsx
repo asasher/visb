@@ -115,7 +115,7 @@ export function Waveform({
         v = v + dv;
       }
     },
-    [beats, duration, tempo, scaleX, offsetX, position],
+    [beats, duration, tempo, scaleX, offsetX, position, beatOffset],
   );
 
   useAnimationFrame(() => {

@@ -1,6 +1,5 @@
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { and, eq } from "drizzle-orm";
-import { access } from "fs";
 import {
   getServerSession,
   type DefaultSession,
