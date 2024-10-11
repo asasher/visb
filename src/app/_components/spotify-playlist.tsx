@@ -7,39 +7,57 @@ import { ScrollArea } from "~/components/ui/scroll-area";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { ArrowDown01, Loader2 } from "lucide-react";
+import { Waypoint } from "react-waypoint";
 
 type SpotifyPlaylistProps = {
   deviceId: string;
 };
 export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
-  const { data: playlists, isLoading: isPlaylistsLoading } =
-    api.spotify.playlists.useQuery({
+  const {
+    data: playlists,
+    isLoading: isPlaylistsLoading,
+    fetchNextPage: fetchMorePlaylists,
+    hasNextPage: hasMorePlaylists,
+    isFetchingNextPage: isFetchingMorePlaylists,
+  } = api.spotify.playlists.useInfiniteQuery(
+    {
       cursor: 0,
-    });
+    },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      initialCursor: 0,
+    },
+  );
   const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null);
 
   const { mutate: playOnDevice, isPending: isPlayOnDeviceLoading } =
     api.spotify.playOnDevice.useMutation();
 
-  const { data: tracks, isLoading: isTracksLoading } =
-    api.spotify.getPlaylistTracks.useQuery(
-      {
-        playlistId: activePlaylistId,
-        cursor: 0,
-      },
-      {
-        enabled: !!activePlaylistId,
-      },
-    );
-
-  const activePlaylist = playlists?.items.find(
-    (x) => x.id === activePlaylistId,
+  const {
+    data: tracks,
+    isLoading: isTracksLoading,
+    hasNextPage: hasMoreTracks,
+    fetchNextPage: fetchMoreTracks,
+    isFetchingNextPage: isFetchingMoreTracks,
+  } = api.spotify.getPlaylistTracks.useInfiniteQuery(
+    {
+      playlistId: activePlaylistId,
+    },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      initialCursor: 0,
+      enabled: !!activePlaylistId,
+    },
   );
+
+  const activePlaylist = playlists?.pages
+    .flatMap((x) => x.items)
+    .find((x) => x.id === activePlaylistId);
 
   return (
     <>
       {activePlaylist && (
-        <div className="relative mx-4 flex h-[3.1rem] items-start justify-between overflow-hidden rounded-none rounded-t-md bg-green-500 p-0 text-left text-white">
+        <div className="relative mx-4 flex min-h-10 items-start justify-between overflow-hidden bg-green-500 p-0 text-left text-white">
           <PlaylistCard
             playlist={activePlaylist}
             className="pointer-events-none"
@@ -61,72 +79,103 @@ export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
           </Button>
         </div>
       )}
-      {(isPlaylistsLoading || isTracksLoading) && (
-        <SkeletonPlaylist hasHeader={!!activePlaylist} />
-      )}
-      {playlists && (
+      {
         <ScrollArea
           className={cn(
-            "mx-4 mb-4 h-full rounded-md border border-none",
+            "mx-4 mb-4 h-full border-none",
             isTracksLoading ? "animate-pulse" : "",
             activePlaylist ? "rounded-t-none" : "",
           )}
         >
-          {!activePlaylist &&
-            playlists.items.map((playlist) => (
-              <Button
-                className={cn(
-                  "relative block h-fit w-full rounded-none border-none p-0 text-left text-black shadow-none odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200",
-                )}
-                onClick={() => {
-                  setActivePlaylistId(playlist.id);
-                  void playOnDevice({
-                    deviceId,
-                    playlistUri: playlist.uri,
-                  });
-                }}
-                disabled={isTracksLoading || isPlaylistsLoading}
-                key={playlist.id}
-              >
-                <PlaylistCard
-                  playlist={playlist}
-                  className="pointer-events-none"
-                />
-                <p className="pointer-events-none absolute right-4 top-3 text-xs">
-                  Play
-                </p>
-              </Button>
-            ))}
+          {!activePlaylist && (
+            <>
+              {playlists?.pages.map((page) => (
+                <>
+                  {page.items.map((playlist) => (
+                    <Button
+                      className={cn(
+                        "relative block h-fit w-full rounded-none border-none p-0 text-left text-black shadow-none odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200",
+                      )}
+                      onClick={() => {
+                        setActivePlaylistId(playlist.id);
+                        void playOnDevice({
+                          deviceId,
+                          playlistUri: playlist.uri,
+                        });
+                      }}
+                      disabled={isTracksLoading || isPlaylistsLoading}
+                      key={playlist.id}
+                    >
+                      <PlaylistCard
+                        playlist={playlist}
+                        className="pointer-events-none"
+                      />
+                      <p className="pointer-events-none absolute right-4 top-3 text-xs">
+                        Play
+                      </p>
+                    </Button>
+                  ))}
+                </>
+              ))}
+              {(isPlaylistsLoading || isFetchingMorePlaylists) && (
+                <>
+                  <div className="flex h-10 w-full animate-pulse bg-slate-50 odd:bg-slate-100 even:bg-slate-50"></div>
+                  <div className="flex h-10 w-full animate-pulse bg-slate-50 odd:bg-slate-100 even:bg-slate-50"></div>
+                  <div className="flex h-10 w-full animate-pulse bg-slate-50 odd:bg-slate-100 even:bg-slate-50"></div>
+                </>
+              )}
+              {hasMorePlaylists && !isFetchingMorePlaylists && (
+                <Waypoint onEnter={() => fetchMorePlaylists()} />
+              )}
+            </>
+          )}
+
           {!!tracks &&
-            tracks.items.map((track) => (
-              <Button
-                className={cn(
-                  "relative block h-fit w-full rounded-none border-none p-0 text-left text-black shadow-none odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200",
-                )}
-                onClick={() =>
-                  track.uri &&
-                  playOnDevice({
-                    playlistUri: activePlaylist?.uri,
-                    trackUri: track.uri,
-                    deviceId,
-                  })
-                }
-                disabled={
-                  isTracksLoading || isPlaylistsLoading || isPlayOnDeviceLoading
-                }
-                key={track.id}
-              >
-                <TrackCard
-                  track={track}
-                  className="cursor-pointer odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200"
-                />
-                <p className="pointer-events-none absolute right-4 top-3 text-xs">
-                  Play
-                </p>
-              </Button>
+            tracks.pages.map((page) => (
+              <>
+                {page.items.map((track) => (
+                  <Button
+                    className={cn(
+                      "relative block h-fit w-full rounded-none border-none p-0 text-left text-black shadow-none odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200",
+                    )}
+                    onClick={() =>
+                      track.uri &&
+                      playOnDevice({
+                        playlistUri: activePlaylist?.uri,
+                        trackUri: track.uri,
+                        deviceId,
+                      })
+                    }
+                    disabled={
+                      isTracksLoading ||
+                      isPlaylistsLoading ||
+                      isPlayOnDeviceLoading
+                    }
+                    key={track.id}
+                  >
+                    <TrackCard
+                      track={track}
+                      className="cursor-pointer odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200"
+                    />
+                    <p className="pointer-events-none absolute right-4 top-3 text-xs">
+                      Play
+                    </p>
+                  </Button>
+                ))}
+              </>
             ))}
+          {(isTracksLoading || isFetchingMoreTracks) && (
+            <>
+              <div className="flex h-10 w-full animate-pulse bg-slate-50 odd:bg-slate-100 even:bg-slate-50"></div>
+              <div className="flex h-10 w-full animate-pulse bg-slate-50 odd:bg-slate-100 even:bg-slate-50"></div>
+              <div className="flex h-10 w-full animate-pulse bg-slate-50 odd:bg-slate-100 even:bg-slate-50"></div>
+            </>
+          )}
+          {hasMoreTracks && !isFetchingMoreTracks && (
+            <Waypoint onEnter={() => fetchMoreTracks()} />
+          )}
         </ScrollArea>
-      )}
+      }
     </>
   );
 }
@@ -253,7 +302,6 @@ function SortPlaylistByTempoButton({
       async onSettled() {
         await utils.spotify.getPlaylistTracks.invalidate({
           playlistId: spotifyPlaylistId,
-          cursor: 0,
         });
       },
     });

@@ -301,7 +301,7 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
         </Alert>
       )}
       {playerRef.current && track && (
-        <div className="grid w-full grid-cols-12 items-end justify-center">
+        <div className="grid w-full grid-cols-12 items-end justify-center shadow-lg">
           <div className="relative col-span-full h-20 overflow-hidden">
             <TrackProgress
               player={playerRef.current}

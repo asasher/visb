@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import IntervalTree from "@flatten-js/interval-tree";
-import { isDefined } from "~/lib/utils";
+import { chunk, isDefined } from "~/lib/utils";
 import { eq, inArray } from "drizzle-orm";
 import { tracks } from "~/server/db/schema";
 import { getSpotifySdk } from "~/server/lib/spotify";
@@ -34,14 +34,24 @@ export const spotifyRouter = createTRPCRouter({
         tempo:
           ourTracks.find((x) => x.spotifyTrackId === track.track.id)
             ?.userTapTempo ??
-          features.find((feature) => feature.id === track.track.id)?.tempo ??
+          features.find((feature) => feature?.id === track.track.id)?.tempo ??
           0,
       }));
       const sortedTracks = trackTempos.sort((a, b) => a.tempo - b.tempo);
       const sortTracksUris = sortedTracks.map((track) => track.uri);
+      const chunks = chunk(sortTracksUris, 100); // 100 is the max number of tracks per playlist that spotify allows
       await sdk.playlists.updatePlaylistItems(input.spotifyPlaylistId, {
-        uris: sortTracksUris,
+        uris: chunks[0],
       });
+      if (chunks.length > 1) {
+        // Add the rest of the tracks to the playlist at the end
+        for (let i = 1; i < chunks.length; i++) {
+          await sdk.playlists.addItemsToPlaylist(
+            input.spotifyPlaylistId,
+            chunks[i],
+          );
+        }
+      }
     }),
   playOnDevice: protectedProcedure
     .input(
@@ -97,6 +107,7 @@ export const spotifyRouter = createTRPCRouter({
         limit,
         cursor,
       );
+      console.log("Getting Playlists", cursor, limit);
       const items = playlists.items
         .filter((playlist) => playlist.owner.id === spotifyUserId)
         .map((playlist) => ({
@@ -106,7 +117,7 @@ export const spotifyRouter = createTRPCRouter({
           imageUrl: playlist.images[0]?.url,
           uri: playlist.uri,
         }));
-      const nextCursor = cursor + limit;
+      const nextCursor = playlists.next ? cursor + limit : undefined;
       return {
         items,
         nextCursor,
@@ -136,8 +147,10 @@ export const spotifyRouter = createTRPCRouter({
         limit,
         cursor,
       );
+      console.log("Reading Track Ids");
       const trackIds = playlistTracks.items.map((track) => track.track.id);
       const trackFeatures = await sdk.tracks.audioFeatures(trackIds);
+      console.log("Reading Our Tracks");
       const ourTracks = await ctx.db.query.tracks.findMany({
         where: inArray(tracks.spotifyTrackId, trackIds),
       });
@@ -146,7 +159,7 @@ export const spotifyRouter = createTRPCRouter({
         name: track.track.name,
         imageUrl: track.track.album.images[0]?.url,
         duration: track.track.duration_ms,
-        ...trackFeatures.find((feature) => feature.id === track.track.id),
+        ...trackFeatures.find((feature) => feature?.id === track.track.id),
       }));
       const combinedTracks = spotifyTracks.map((track) => ({
         ...track,
@@ -154,7 +167,7 @@ export const spotifyRouter = createTRPCRouter({
       }));
       return {
         items: combinedTracks,
-        nextCursor: cursor + limit,
+        nextCursor: playlistTracks.next ? cursor + limit : undefined,
       };
     }),
   analysis: protectedProcedure
