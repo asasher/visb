@@ -224,7 +224,9 @@ function PlaylistCard({ playlist, className, onClick }: PlaylistCardProps) {
         alt={playlist.name}
       />
       <div>
-        <p className="inline-flex text-ellipsis text-sm">{playlist.name}</p>
+        <p className="inline-flex max-w-48 overflow-hidden text-sm md:max-w-none">
+          {playlist.name}
+        </p>
         <p className="ms-4 inline-flex text-xs">
           {playlist.totalTracks} TRACKS
         </p>
