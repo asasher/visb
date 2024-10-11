@@ -4,7 +4,7 @@ import Image from "next/image";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { ArrowDown01, Loader2 } from "lucide-react";
 import { Waypoint } from "react-waypoint";
@@ -89,12 +89,12 @@ export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
         >
           {!activePlaylist && (
             <>
-              {playlists?.pages.map((page) => (
-                <>
+              {playlists?.pages.map((page, i) => (
+                <Fragment key={i}>
                   {page.items.map((playlist) => (
                     <Button
                       className={cn(
-                        "relative block h-fit w-full rounded-none border-none p-0 text-left text-black shadow-none odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200",
+                        "relative block h-fit w-full rounded-none border-none bg-slate-100 p-0 text-left text-black shadow-none hover:bg-slate-200",
                       )}
                       onClick={() => {
                         setActivePlaylistId(playlist.id);
@@ -115,7 +115,7 @@ export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
                       </p>
                     </Button>
                   ))}
-                </>
+                </Fragment>
               ))}
               {(isPlaylistsLoading || isFetchingMorePlaylists) && (
                 <>
@@ -131,12 +131,12 @@ export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
           )}
 
           {!!tracks &&
-            tracks.pages.map((page) => (
-              <>
+            tracks.pages.map((page, i) => (
+              <Fragment key={i}>
                 {page.items.map((track) => (
                   <Button
                     className={cn(
-                      "relative block h-fit w-full rounded-none border-none p-0 text-left text-black shadow-none odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200",
+                      "relative block h-fit w-full rounded-none border-none bg-slate-100 p-0 text-left text-black shadow-none hover:bg-slate-200",
                     )}
                     onClick={() =>
                       track.uri &&
@@ -162,7 +162,7 @@ export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
                     </p>
                   </Button>
                 ))}
-              </>
+              </Fragment>
             ))}
           {(isTracksLoading || isFetchingMoreTracks) && (
             <>
@@ -190,6 +190,7 @@ function CoverImage({ imageUrl, alt, className }: CoverImageProps) {
     imageUrl && (
       <div className={cn("relative h-full w-full", className)}>
         <Image
+          sizes="100%"
           className="object-cover"
           src={imageUrl}
           alt={alt ?? ""}

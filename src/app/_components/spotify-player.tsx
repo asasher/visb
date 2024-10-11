@@ -149,6 +149,7 @@ type Slice = {
 };
 
 type LocalPlayerState = {
+  active: boolean;
   paused: boolean;
   duration: number;
   position: number;
@@ -163,6 +164,7 @@ type SpotifyPlayerProps = {
 export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
   const playerRef = useRef<Player>();
   const [state, setState] = useState<LocalPlayerState>({
+    active: false,
     paused: true,
     duration: 1,
     position: 0,
@@ -203,6 +205,7 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
         return { prevData };
       },
       onError(err, newValues, ctx) {
+        console.error(err);
         utils.tracks.getSlices.setData(newValues.trackId, () => ctx?.prevData);
       },
       onSettled() {
@@ -270,6 +273,7 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
       });
 
       player.addListener("player_state_changed", (state) => {
+        console.log("Player State Changed", state);
         setState((prevState) => ({
           ...prevState,
           paused: state?.paused ?? prevState.paused,
@@ -281,6 +285,14 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
             prevState.prevTrack,
           nextTrack: state?.track_window?.next_tracks[0] ?? prevState.nextTrack,
         }));
+
+        void player.getCurrentState().then((state) => {
+          console.log("Fetching Player State Again", state);
+          setState((prevState) => ({
+            ...prevState,
+            active: !!state,
+          }));
+        });
       });
 
       void player.connect();
