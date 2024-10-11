@@ -85,6 +85,8 @@ export const getSpotifyTokenOrRefresh = async (userId: string) => {
       refresh_token?: string;
     };
 
+    console.log("New Token", newTokens);
+
     const result = await db
       .update(accounts)
       .set({
