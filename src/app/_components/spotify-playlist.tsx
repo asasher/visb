@@ -260,7 +260,9 @@ function TrackCard({ track, className, onClick }: TrackCardProps) {
         alt={track.name}
       />
       <div className="w-8/12 overflow-x-scroll">
-        <p className="inline-flex text-sm">{track.name}</p>
+        <p className="inline-flex max-w-48 overflow-hidden text-sm md:max-w-none">
+          {track.name}
+        </p>
         <p className="ms-4 inline-flex items-center text-xs">
           {Math.round(track.userTapTempo ?? track.tempo ?? 0)} BPM
         </p>
