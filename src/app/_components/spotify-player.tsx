@@ -667,7 +667,7 @@ function TrackProgress({
         className,
       )}
     >
-      {duration && trackAnalysis?.beats && (
+      {!!duration && trackAnalysis?.beats ? (
         <div className="absolute left-0 top-0 h-full w-full">
           <Waveform
             className="pointer-events-none"
@@ -680,7 +680,7 @@ function TrackProgress({
             scaleX={scaleX}
           />
         </div>
-      )}
+      ) : null}
       <div
         className={cn(
           "absolute top-1/4 h-1/2 w-px bg-white",
