@@ -16,3 +16,5 @@ It also shows analysis of tracks like BPM and beats etc.
 - [x] Faster feedback when reseting Tap Tempo.
 - [x] Generate Beat Grid based on user BPM and beat offset.
 - [x] Compute beat grid offset based on tap tempo.
+- [ ] Use zustand for managin state.
+- [ ] Fix the song is stuck on previous song when playing the next song, bug. It's very annoying.

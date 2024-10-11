@@ -6,7 +6,7 @@ import { isDefined } from "~/lib/utils";
 import { eq, inArray } from "drizzle-orm";
 import { tracks } from "~/server/db/schema";
 import { getSpotifySdk } from "~/server/lib/spotify";
-import { Market } from "@spotify/web-api-ts-sdk";
+import { type Market } from "@spotify/web-api-ts-sdk";
 
 export const spotifyRouter = createTRPCRouter({
   sortByTempo: protectedProcedure
@@ -25,6 +25,7 @@ export const spotifyRouter = createTRPCRouter({
       );
       const trackIds = playlistTracks.items.map((track) => track.track.id);
       const features = await sdk.tracks.audioFeatures(trackIds);
+      console.log(`Got ${features.length} features`);
       const ourTracks = await ctx.db.query.tracks.findMany({
         where: inArray(tracks.spotifyTrackId, trackIds),
       });
@@ -96,15 +97,19 @@ export const spotifyRouter = createTRPCRouter({
         limit,
         cursor,
       );
-      return {
-        items: playlists.items.map((playlist) => ({
+      const items = playlists.items
+        .filter((playlist) => playlist.owner.id === spotifyUserId)
+        .map((playlist) => ({
           id: playlist.id,
           name: playlist.name,
           totalTracks: playlist.tracks.total,
           imageUrl: playlist.images[0]?.url,
           uri: playlist.uri,
-        })),
-        nextCursor: cursor + limit,
+        }));
+      const nextCursor = cursor + limit;
+      return {
+        items,
+        nextCursor,
       };
     }),
   getPlaylistTracks: protectedProcedure

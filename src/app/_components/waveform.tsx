@@ -77,14 +77,6 @@ export function Waveform({
       const durationBetweenBeats = Math.floor(60000 / tempo);
       const numBeatsBasedOnTempo = Math.floor(duration / durationBetweenBeats);
 
-      console.log(
-        "Beats",
-        durationBetweenBeats,
-        numBeatsBasedOnTempo,
-        beatOffset,
-        duration,
-      );
-
       let beatPosition = Math.round(beatOffset ?? 0);
       for (let i = 0; i < numBeatsBasedOnTempo; i++) {
         beatPosition += durationBetweenBeats;
