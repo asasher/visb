@@ -39,6 +39,7 @@ const TapTempoButton = ({
     api.tracks.setTrackTempo.useMutation({
       async onSettled() {
         await utils.spotify.invalidate();
+        setBpm(null);
       },
     });
 
