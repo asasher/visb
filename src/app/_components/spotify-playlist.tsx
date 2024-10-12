@@ -4,15 +4,27 @@ import Image from "next/image";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import { Fragment, useState } from "react";
+import {
+  forwardRef,
+  Fragment,
+  MutableRefObject,
+  Ref,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "~/components/ui/button";
 import { ArrowDown01, Loader2 } from "lucide-react";
 import { Waypoint } from "react-waypoint";
+import { Player } from "./spotify-player";
 
 type SpotifyPlaylistProps = {
   deviceId: string;
 };
-export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
+export const SpotifyPlaylist = forwardRef(function SpotifyPlaylist(
+  { deviceId }: SpotifyPlaylistProps,
+  playerRef,
+) {
   const {
     data: playlists,
     isLoading: isPlaylistsLoading,
@@ -102,6 +114,13 @@ export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
                           deviceId,
                           playlistUri: playlist.uri,
                         });
+                        if (
+                          playerRef &&
+                          "current" in playerRef &&
+                          playerRef.current
+                        ) {
+                          (playerRef.current as Player).togglePlay();
+                        }
                       }}
                       disabled={isTracksLoading || isPlaylistsLoading}
                       key={playlist.id}
@@ -178,7 +197,7 @@ export function SpotifyPlaylist({ deviceId }: SpotifyPlaylistProps) {
       }
     </>
   );
-}
+});
 
 type CoverImageProps = {
   className?: string;

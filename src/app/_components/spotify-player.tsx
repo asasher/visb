@@ -127,7 +127,7 @@ type PlayerProps = {
   getOAuthToken: (cb: (token: string) => void) => void;
   volume: number;
 };
-interface Player {
+export interface Player {
   nextTrack(): unknown;
   previousTrack(): unknown;
   setName(arg0: string): unknown;
@@ -326,7 +326,7 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
 
   return (
     <div className="flex h-full w-full flex-col justify-end object-contain">
-      {deviceId && <SpotifyPlaylist deviceId={deviceId} />}
+      {deviceId && <SpotifyPlaylist deviceId={deviceId} ref={playerRef} />}
       {(!playerRef.current || !track) && (
         <Alert className="rounded-none">
           <Music className="h-4 w-4" />
