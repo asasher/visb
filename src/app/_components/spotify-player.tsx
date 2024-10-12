@@ -132,6 +132,7 @@ type PlayerProps = {
 export interface Player {
   nextTrack(): unknown;
   previousTrack(): unknown;
+  activateElement(): Promise<void>;
   setName(arg0: string): unknown;
   togglePlay(): Promise<void>;
   resume(): Promise<void>;

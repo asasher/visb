@@ -131,6 +131,14 @@ export const SpotifyPlaylist = forwardRef(function SpotifyPlaylist(
                       )}
                       onClick={() => {
                         setActivePlaylistId(playlist.id);
+                        if (
+                          playerRef &&
+                          "current" in playerRef &&
+                          playerRef.current
+                        ) {
+                          const player = playerRef.current as Player;
+                          void player.activateElement();
+                        }
                         void playOnDevice({
                           deviceId,
                           playlistUri: playlist.uri,
