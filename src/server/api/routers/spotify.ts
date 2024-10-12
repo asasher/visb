@@ -70,13 +70,11 @@ export const spotifyRouter = createTRPCRouter({
         (x) => x.id === input.deviceId,
       );
       if (!inputDevice) {
-        return {
-          isDeviceAvailable: false,
-        };
+        throw new Error("Input device is not available");
       }
 
       const playbackState = await sdk.player.getPlaybackState();
-      if (playbackState?.device.id !== input.deviceId) {
+      if (playbackState?.device.id !== inputDevice.id) {
         await sdk.player.transferPlayback([input.deviceId], true);
       }
       await sdk.player.startResumePlayback(
