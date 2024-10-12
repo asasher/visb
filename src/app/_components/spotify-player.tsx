@@ -15,7 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { SpotifyPlaylist } from "./spotify-playlist";
 import TapTempoButton from "./tap-tempo-button";
 import { getSession } from "next-auth/react";
-import { captureException } from "@sentry/nextjs";
+import { captureEvent, captureException, captureMessage } from "@sentry/nextjs";
 
 // {
 //   uri: "spotify:track:xxxx", // Spotify URI
@@ -257,11 +257,15 @@ export function SpotifyPlayer() {
 
     window.onSpotifyWebPlaybackSDKReady = () => {
       const player = new window.Spotify.Player({
-        name: "Web Playback SDK",
+        name: "Rock DJ",
         getOAuthToken: (cb) => {
           async function getToken() {
+            captureMessage("Player is trying to fetch the token");
             const session = await getSession();
-            if (!session?.user.accessToken) return;
+            if (!session?.user.accessToken) {
+              captureException(new Error("No access token in player cb"));
+              return;
+            }
             cb(session?.user.accessToken);
           }
           void getToken();
@@ -269,8 +273,6 @@ export function SpotifyPlayer() {
         volume: 0.5,
       });
       playerRef.current = player;
-
-      player.setName("Rock DJ");
 
       player.addListener("ready", ({ device_id }) => {
         console.log("Ready with Device ID", device_id);

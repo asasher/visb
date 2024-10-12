@@ -53,7 +53,14 @@ export const SpotifyPlaylist = forwardRef(function SpotifyPlaylist(
           console.log("Device Id", ctx.deviceId);
           console.log("Playlist Uri", ctx.playlistUri);
           console.log("Track Uri", ctx.trackUri);
-          console.log("State", state);
+          console.log(
+            "State",
+            state,
+            state.context,
+            state.context.metadata,
+            state.track_window,
+            state.disallows,
+          );
           if (state?.context?.uri !== ctx.playlistUri) {
             console.log("Reconnecting player just in case it's broken");
             captureException(
