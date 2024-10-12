@@ -43,7 +43,22 @@ export const SpotifyPlaylist = forwardRef(function SpotifyPlaylist(
   const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null);
 
   const { mutate: playOnDevice, isPending: isPlayOnDeviceLoading } =
-    api.spotify.playOnDevice.useMutation();
+    api.spotify.playOnDevice.useMutation({
+      async onSettled(data, input, ctx) {
+        if (playerRef && "current" in playerRef && playerRef.current) {
+          console.log("Toggling Play from Playlist");
+          const player = playerRef.current as Player;
+          void player.resume();
+          const state = await player.getCurrentState();
+          console.log("Device Id", ctx.deviceId);
+          console.log("Playlist Uri", ctx.playlistUri);
+          console.log("Track Uri", ctx.trackUri);
+          console.log("State", state);
+          console.log("Reconnecting player just in case it's broken");
+          void player.connect();
+        }
+      },
+    });
 
   const {
     data: tracks,
@@ -114,14 +129,6 @@ export const SpotifyPlaylist = forwardRef(function SpotifyPlaylist(
                           deviceId,
                           playlistUri: playlist.uri,
                         });
-                        if (
-                          playerRef &&
-                          "current" in playerRef &&
-                          playerRef.current
-                        ) {
-                          console.log("Toggling Play from Playlist");
-                          void (playerRef.current as Player).resume();
-                        }
                       }}
                       disabled={isTracksLoading || isPlaylistsLoading}
                       key={playlist.id}
