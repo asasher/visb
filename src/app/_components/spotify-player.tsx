@@ -14,6 +14,7 @@ import { Loader2, Music, Slice } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { SpotifyPlaylist } from "./spotify-playlist";
 import TapTempoButton from "./tap-tempo-button";
+import { getSession } from "next-auth/react";
 
 // {
 //   uri: "spotify:track:xxxx", // Spotify URI
@@ -167,10 +168,7 @@ type LocalPlayerState = {
   nextTrack: WebPlaybackTrack | null;
   deviceId: string | null;
 };
-type SpotifyPlayerProps = {
-  token: string;
-};
-export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
+export function SpotifyPlayer() {
   const playerRef = useRef<Player>();
   const [state, setState] = useState<LocalPlayerState>({
     active: false,
@@ -244,7 +242,6 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
 
   // Load Spotify Sdk
   useEffect(() => {
-    if (!token) return;
     if (playerRef.current) return; // We already have a player no need to create a new one
 
     const script = document.createElement("script");
@@ -257,7 +254,12 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
       const player = new window.Spotify.Player({
         name: "Web Playback SDK",
         getOAuthToken: (cb) => {
-          cb(token);
+          async function getToken() {
+            const session = await getSession();
+            if (!session?.user.accessToken) return;
+            cb(session?.user.accessToken);
+          }
+          void getToken();
         },
         volume: 0.5,
       });
@@ -320,7 +322,7 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
 
       void player.connect();
     };
-  }, [token]);
+  }, []);
 
   return (
     <div className="flex h-full w-full flex-col justify-end object-contain">
@@ -691,7 +693,7 @@ function TrackProgress({
         className,
       )}
     >
-      {!!duration && trackAnalysis?.beats ? (
+      {duration !== undefined && trackAnalysis?.beats ? (
         <div className="absolute left-0 top-0 h-full w-full">
           <Waveform
             className="pointer-events-none"

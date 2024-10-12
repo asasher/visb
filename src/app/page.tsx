@@ -1,12 +1,10 @@
-"use client";
-
 import Link from "next/link";
 import { SpotifyPlayer } from "./_components/spotify-player";
 import { Button } from "~/components/ui/button";
-import { useSession } from "next-auth/react";
+import { getServerAuthSession } from "~/server/auth";
 
-export default function Home() {
-  const { data: session } = useSession();
+export default async function Home() {
+  const session = await getServerAuthSession();
   return (
     <main className="grid h-dvh grid-rows-12">
       <div className="flex w-full items-center justify-between px-4 py-2">
@@ -23,7 +21,7 @@ export default function Home() {
         </Button>
       </div>
       <div className="row-start-2 -row-end-1 w-full overflow-hidden">
-        {session?.user && <SpotifyPlayer token={session?.user.accessToken} />}
+        {session?.user && <SpotifyPlayer />}
       </div>
     </main>
   );
