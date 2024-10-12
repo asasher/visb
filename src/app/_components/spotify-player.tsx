@@ -15,6 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { SpotifyPlaylist } from "./spotify-playlist";
 import TapTempoButton from "./tap-tempo-button";
 import { getSession } from "next-auth/react";
+import { captureException } from "@sentry/nextjs";
 
 // {
 //   uri: "spotify:track:xxxx", // Spotify URI
@@ -138,6 +139,7 @@ export interface Player {
   seek(position: number): Promise<void>;
   getCurrentState(): Promise<WebPlaybackState>;
   connect: () => Promise<boolean>;
+  disconnect: () => Promise<boolean>;
   addListener: ReadyNotReadyListener & PlayerStateChangedListener;
   on: PlaybackErrorListener;
 }
@@ -244,7 +246,7 @@ export function SpotifyPlayer() {
 
   // Load Spotify Sdk
   useEffect(() => {
-    if (playerRef.current) return; // We already have a player no need to create a new one
+    if (playerRef.current) return;
 
     const script = document.createElement("script");
     script.src = "https://sdk.scdn.co/spotify-player.js";
@@ -286,18 +288,22 @@ export function SpotifyPlayer() {
       });
 
       player.on("playback_error", ({ message }) => {
+        captureException(new Error(`Playback Error: ${message}`));
         console.error("Failed to perform playback", message);
       });
 
       player.on("authentication_error", ({ message }) => {
+        captureException(new Error(`Authentication Error: ${message}`));
         console.error("Failed to authenticate", message);
       });
 
       player.on("initialization_error", ({ message }) => {
+        captureException(new Error(`Initialization Error: ${message}`));
         console.error("Failed to initialize", message);
       });
 
       player.on("account_error", ({ message }) => {
+        captureException(new Error(`Account Error: ${message}`));
         console.error("Failed to authenticate", message);
       });
 

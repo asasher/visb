@@ -17,6 +17,7 @@ import { Button } from "~/components/ui/button";
 import { ArrowDown01, Loader2 } from "lucide-react";
 import { Waypoint } from "react-waypoint";
 import { Player } from "./spotify-player";
+import { captureException } from "@sentry/nextjs";
 
 type SpotifyPlaylistProps = {
   deviceId: string;
@@ -46,16 +47,21 @@ export const SpotifyPlaylist = forwardRef(function SpotifyPlaylist(
     api.spotify.playOnDevice.useMutation({
       async onSettled(data, input, ctx) {
         if (playerRef && "current" in playerRef && playerRef.current) {
-          console.log("Toggling Play from Playlist");
+          console.log("Play on device settled. Resuming player.");
           const player = playerRef.current as Player;
-          void player.resume();
           const state = await player.getCurrentState();
           console.log("Device Id", ctx.deviceId);
           console.log("Playlist Uri", ctx.playlistUri);
           console.log("Track Uri", ctx.trackUri);
           console.log("State", state);
-          console.log("Reconnecting player just in case it's broken");
-          void player.connect();
+          if (state?.context?.uri !== ctx.playlistUri) {
+            console.log("Reconnecting player just in case it's broken");
+            captureException(
+              new Error("Player's context uri is not the playlist uri"),
+            );
+            await player.connect();
+          }
+          await player.resume();
         }
       },
     });
