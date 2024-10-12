@@ -133,6 +133,8 @@ export interface Player {
   previousTrack(): unknown;
   setName(arg0: string): unknown;
   togglePlay(): Promise<void>;
+  resume(): Promise<void>;
+  pause(): Promise<void>;
   seek(position: number): Promise<void>;
   getCurrentState(): Promise<WebPlaybackState>;
   connect: () => Promise<boolean>;

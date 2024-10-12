@@ -120,7 +120,7 @@ export const SpotifyPlaylist = forwardRef(function SpotifyPlaylist(
                           playerRef.current
                         ) {
                           console.log("Toggling Play from Playlist");
-                          void (playerRef.current as Player).togglePlay();
+                          void (playerRef.current as Player).resume();
                         }
                       }}
                       disabled={isTracksLoading || isPlaylistsLoading}
