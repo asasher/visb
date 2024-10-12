@@ -455,7 +455,7 @@ function SlicesLayer({
     if (!container) return;
     const { width } = container.getBoundingClientRect();
     setVw(width);
-  }, []);
+  }, [divRef.current?.parentElement]);
   const bindDrag = useDrag(
     ({ delta: [dx], args, currentTarget, first, last }) => {
       if (first) onSlicingStart();
