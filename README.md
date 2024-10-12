@@ -19,3 +19,4 @@ It also shows analysis of tracks like BPM and beats etc.
 - [x] Use Infinite Queries to load more playlists and tracks.
 - [x] Handled sorting of more than 100 items.
 - [ ] Fix the song is stuck on previous song when playing the next song, bug. It's very annoying. Can it be fixed by managing player state better?
+- [ ] Find out what Spotify's actual expiry is for the token and set referesh interval accordingly. That's causing the above finicky issue.
