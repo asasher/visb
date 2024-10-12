@@ -298,7 +298,6 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
       });
 
       player.addListener("player_state_changed", (state) => {
-        console.log("Player State Changed", state);
         setState((prevState) => ({
           ...prevState,
           paused: state?.paused ?? prevState.paused,
@@ -312,7 +311,6 @@ export function SpotifyPlayer({ token }: SpotifyPlayerProps) {
         }));
 
         void player.getCurrentState().then((state) => {
-          console.log("Fetching Player State Again", state);
           setState((prevState) => ({
             ...prevState,
             active: !!state,

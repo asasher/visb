@@ -119,6 +119,7 @@ export const SpotifyPlaylist = forwardRef(function SpotifyPlaylist(
                           "current" in playerRef &&
                           playerRef.current
                         ) {
+                          console.log("Toggling Play from Playlist");
                           (playerRef.current as Player).togglePlay();
                         }
                       }}

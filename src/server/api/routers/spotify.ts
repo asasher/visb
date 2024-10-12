@@ -64,6 +64,17 @@ export const spotifyRouter = createTRPCRouter({
     .mutation(async ({ input, ctx }) => {
       const userId = ctx.session.user.id;
       const sdk = await getSpotifySdk(userId);
+
+      const playerDevices = await sdk.player.getAvailableDevices();
+      const inputDevice = playerDevices.devices.find(
+        (x) => x.id === input.deviceId,
+      );
+      if (!inputDevice) {
+        return {
+          isDeviceAvailable: false,
+        };
+      }
+
       const playbackState = await sdk.player.getPlaybackState();
       if (playbackState?.device.id !== input.deviceId) {
         await sdk.player.transferPlayback([input.deviceId], true);

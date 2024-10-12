@@ -11,6 +11,7 @@ const SessionProvider = ({ children }: Props) => {
     <NextAuthSessionProvider
       refetchOnWindowFocus={true}
       refetchInterval={15 * 60} // 15 minutes
+      refetchWhenOffline={false}
     >
       {children}
     </NextAuthSessionProvider>
