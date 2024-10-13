@@ -51,7 +51,7 @@ export const SpotifyPlaylist = forwardRef(
           if (playerRef && "current" in playerRef && playerRef.current) {
             console.log("Play on device settled. Resuming player.");
             const player = playerRef.current as Player;
-            let state = await player.getCurrentState();
+            const state = await player.getCurrentState();
             if (state?.context?.uri !== ctx.playlistUri) {
               console.log("Reconnecting player just in case it's broken");
               const isConnected = await player.connect();
@@ -149,7 +149,7 @@ export const SpotifyPlaylist = forwardRef(
     useEffect(() => {
       console.log("Device Id changed", deviceId);
       if (!deviceId) return;
-      restoreState(deviceId);
+      void restoreState(deviceId);
     }, [deviceId]);
 
     if (!deviceId) {
@@ -169,7 +169,7 @@ export const SpotifyPlaylist = forwardRef(
             }
           }}
         >
-          hit me if shit's broken
+          {"hit me if shit's broken"}
         </Button>
         {activePlaylist && (
           <div className="relative mx-4 flex min-h-10 items-start justify-between overflow-hidden bg-green-500 p-0 text-left text-white">

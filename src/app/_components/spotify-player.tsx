@@ -237,7 +237,7 @@ function DeviceNotReadyAlert() {
       <Loader2 className="h-4 w-4 animate-spin" />
       <AlertTitle>{"Getting this device ready"}</AlertTitle>
       <AlertDescription>
-        Just a sec, we're getting this device ready
+        {"Just a sec, we're getting this device ready"}
       </AlertDescription>
     </Alert>
   );
@@ -262,8 +262,9 @@ function NeedsRefreshAlert() {
       <HeartCrack className="h-4 w-4" />
       <AlertTitle>{"Something went wrong."}</AlertTitle>
       <AlertDescription>
-        It seems something is broken and we can't fix it, please refresh the
-        page.
+        {
+          "It seems something is broken and we can't fix it, please refresh the page."
+        }
       </AlertDescription>
     </Alert>
   );
