@@ -57,9 +57,9 @@ function DeviceNotReadyAlert() {
   return (
     <Alert className="rounded-none">
       <Loader2 className="h-4 w-4 animate-spin" />
-      <AlertTitle>{"Getting this device ready"}</AlertTitle>
+      <AlertTitle>{"Just a sec"}</AlertTitle>
       <AlertDescription>
-        {"Just a sec, we're getting this device ready"}
+        {"We're getting this ready for playback"}
       </AlertDescription>
     </Alert>
   );
