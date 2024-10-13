@@ -167,6 +167,7 @@ type Actions = {
   onStateChange: (
     state: Omit<PlayerState, "active" | "deviceId" | "needsRefresh">,
   ) => void;
+  resetPlayerState: () => void;
   setPosition: (position: number) => void;
   setIsSlicing: (isSlicing: boolean) => void;
   setRequestedPlaylist: (playlistUri: string) => void;
@@ -197,6 +198,18 @@ export const usePlayerStore = create<State & Actions>()((set) => ({
     set((state) => ({ ...state, player: { ...state.player, position } })),
   setDeviceId: (deviceId) =>
     set((state) => ({ ...state, player: { ...state.player, deviceId } })),
+  resetPlayerState: () =>
+    set((state) => ({
+      ...state,
+      player: {
+        ...state.player,
+        prevTrack: null,
+        nextTrack: null,
+        track: null,
+        duration: 0,
+        position: 0,
+      },
+    })),
   onStateChange: (changedState) =>
     set((state) => ({
       ...state,

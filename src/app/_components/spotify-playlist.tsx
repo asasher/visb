@@ -72,6 +72,8 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
     const setDeviceId = usePlayerStore((state) => state.setDeviceId);
     const deviceId = usePlayerStore((state) => state.player.deviceId);
 
+    const resetPlayerState = usePlayerStore((state) => state.resetPlayerState);
+
     const reconnect = useCallback(
       async (player: Player) => {
         setDeviceId(null);
@@ -89,11 +91,9 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
         console.log("Disconnect player");
         await player.disconnect();
 
-        console.log("Activating element");
-        await player.activateElement();
-
         // For some reason this works better than trying to reconnect immediately
         setTimeout(() => {
+          resetPlayerState();
           void player.connect();
         }, 5000);
       },
@@ -159,7 +159,7 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
           className="mx-4 bg-red-400 hover:bg-red-500"
           onClick={() => {
             if (playerRef && "current" in playerRef && playerRef.current) {
-              const player = playerRef.current as Player;
+              const player = playerRef.current;
               void reconnect(player);
             }
           }}
