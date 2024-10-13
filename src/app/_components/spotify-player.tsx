@@ -453,10 +453,7 @@ export function SpotifyPlayer() {
         <div className="grid w-full grid-cols-12 items-end justify-center shadow-lg">
           <div className="relative col-span-full h-20 overflow-hidden">
             <TrackProgress
-              player={playerRef.current}
-              position={position}
-              duration={duration}
-              trackAnalysis={trackAnalysis}
+              ref={playerRef}
               isSlicing={isSlicing}
               slices={slices ?? []}
               onSlicingStart={() => setIsSlicing(true)}
@@ -668,173 +665,177 @@ function TrackCover({ className }: TrackCoverProps) {
   );
 }
 
-type TrackAnalysis = RouterOutputs["spotify"]["analysis"];
-
 type TrackProgressProps = {
   className?: string;
-  position: number;
-  duration: number;
-  trackAnalysis?: TrackAnalysis;
-  player: Player;
   isSlicing: boolean;
   slices: Slice[];
   onSlicesChange: (slices: Slice[]) => void;
   onSlicingStart: () => void;
   onSlicingEnd: () => void;
 };
-function TrackProgress({
-  className,
-  position,
-  duration,
-  trackAnalysis,
-  player,
-  isSlicing = false,
-  slices,
-  onSlicesChange,
-  onSlicingStart,
-  onSlicingEnd,
-}: TrackProgressProps) {
-  const divRef = useRef<HTMLDivElement>(null);
-
-  const [cursorPosition, setCursorPosition] = useState(0);
-  const [draftSliceAnchorPosition, setDraftSliceAnchorPosition] = useState<
-    number | null
-  >(null);
-
-  const [offsetX, setOffsetX] = useState(0);
-  const [scaleX, setScaleX] = useState(1);
-
-  const positionToPx = (position: number) => {
-    const containerDims = divRef.current?.getBoundingClientRect();
-    if (!containerDims) return 0;
-    const { width: viewportWidth } = containerDims;
-    return _positionToPx(position, duration, viewportWidth, scaleX, offsetX);
-  };
-  const pxToPosition = (px: number) => {
-    const containerDims = divRef.current?.getBoundingClientRect();
-    if (!containerDims) return 0;
-    const { width: viewportWidth } = containerDims;
-
-    return _pxToPosition(px, viewportWidth, duration, scaleX, offsetX);
-  };
-
-  const onPan = (dx: number) => {
-    const boundingRect = divRef.current?.getBoundingClientRect();
-    if (!boundingRect) return;
-    setOffsetX((prevOffsetX) =>
-      Math.max(
-        Math.min(0, prevOffsetX - dx),
-        -(scaleX - 1) * boundingRect.right,
-      ),
-    );
-  };
-
-  const makeSlice = (x: number) => {
-    const newPosition = pxToPosition(x);
-
-    if (!draftSliceAnchorPosition) {
-      setDraftSliceAnchorPosition(newPosition);
-    } else {
-      const newSlice = {
-        id: nanoid(),
-        startPosition: Math.min(newPosition, draftSliceAnchorPosition),
-        endPosition: Math.max(newPosition, draftSliceAnchorPosition),
-        shouldPlay: false,
-      };
-      onSlicesChange([...slices, newSlice]);
-      setDraftSliceAnchorPosition(null);
-      onSlicingEnd();
-    }
-  };
-
-  useGesture(
+const TrackProgress = forwardRef<Player, TrackProgressProps>(
+  function TrackProgress(
     {
-      onDrag: ({ xy: [x], delta, pinching, tap }) => {
-        if (isSlicing) return;
-        if (pinching) return;
-
-        if (tap) {
-          const newPosition = pxToPosition(x);
-          void player.seek(newPosition);
-          return;
-        }
-
-        const [dx] = delta;
-        onPan(-dx);
-      },
-      onMove: ({ xy: [x] }) => {
-        const newPosition = pxToPosition(x);
-        setCursorPosition(newPosition);
-      },
-      onPointerDown: ({ event }) => {
-        if (!isSlicing) return;
-        makeSlice(event.x);
-      },
-      onPinch: ({ offset: [scale] }) => {
-        setScaleX(scale);
-      },
+      className,
+      isSlicing = false,
+      slices,
+      onSlicesChange,
+      onSlicingStart,
+      onSlicingEnd,
     },
-    {
-      target: divRef,
-      pinch: {
-        scaleBounds: {
-          min: 1,
-          max: 8,
+    ref,
+  ) {
+    const divRef = useRef<HTMLDivElement>(null);
+
+    const track = usePlayerStore((state) => state.player.track);
+    const position = usePlayerStore((state) => state.player.position);
+    const duration = usePlayerStore((state) => state.player.duration);
+    const { data: trackAnalysis } = api.spotify.analysis.useQuery(track?.id, {
+      enabled: !!track,
+    });
+
+    const player = (ref && "current" in ref ? ref.current : null) as Player;
+
+    const [cursorPosition, setCursorPosition] = useState(0);
+    const [draftSliceAnchorPosition, setDraftSliceAnchorPosition] = useState<
+      number | null
+    >(null);
+
+    const [offsetX, setOffsetX] = useState(0);
+    const [scaleX, setScaleX] = useState(1);
+
+    const positionToPx = (position: number) => {
+      const containerDims = divRef.current?.getBoundingClientRect();
+      if (!containerDims) return 0;
+      const { width: viewportWidth } = containerDims;
+      return _positionToPx(position, duration, viewportWidth, scaleX, offsetX);
+    };
+    const pxToPosition = (px: number) => {
+      const containerDims = divRef.current?.getBoundingClientRect();
+      if (!containerDims) return 0;
+      const { width: viewportWidth } = containerDims;
+
+      return _pxToPosition(px, viewportWidth, duration, scaleX, offsetX);
+    };
+
+    const onPan = (dx: number) => {
+      const boundingRect = divRef.current?.getBoundingClientRect();
+      if (!boundingRect) return;
+      setOffsetX((prevOffsetX) =>
+        Math.max(
+          Math.min(0, prevOffsetX - dx),
+          -(scaleX - 1) * boundingRect.right,
+        ),
+      );
+    };
+
+    const makeSlice = (x: number) => {
+      const newPosition = pxToPosition(x);
+
+      if (!draftSliceAnchorPosition) {
+        setDraftSliceAnchorPosition(newPosition);
+      } else {
+        const newSlice = {
+          id: nanoid(),
+          startPosition: Math.min(newPosition, draftSliceAnchorPosition),
+          endPosition: Math.max(newPosition, draftSliceAnchorPosition),
+          shouldPlay: false,
+        };
+        onSlicesChange([...slices, newSlice]);
+        setDraftSliceAnchorPosition(null);
+        onSlicingEnd();
+      }
+    };
+
+    useGesture(
+      {
+        onDrag: ({ xy: [x], delta, pinching, tap }) => {
+          if (isSlicing) return;
+          if (pinching) return;
+
+          if (tap) {
+            const newPosition = pxToPosition(x);
+            void player.seek(newPosition);
+            return;
+          }
+
+          const [dx] = delta;
+          onPan(-dx);
+        },
+        onMove: ({ xy: [x] }) => {
+          const newPosition = pxToPosition(x);
+          setCursorPosition(newPosition);
+        },
+        onPointerDown: ({ event }) => {
+          if (!isSlicing) return;
+          makeSlice(event.x);
+        },
+        onPinch: ({ offset: [scale] }) => {
+          setScaleX(scale);
         },
       },
-    },
-  );
+      {
+        target: divRef,
+        pinch: {
+          scaleBounds: {
+            min: 1,
+            max: 8,
+          },
+        },
+      },
+    );
 
-  return (
-    <div
-      ref={divRef}
-      className={cn(
-        "relative h-full w-full touch-none bg-green-600",
-        className,
-      )}
-    >
-      {duration !== undefined && trackAnalysis?.beats ? (
-        <div className="absolute left-0 top-0 h-full w-full">
-          <Waveform
-            className="pointer-events-none"
-            position={position}
-            duration={duration}
-            beats={trackAnalysis.beats}
-            tempo={trackAnalysis.userTapTempo ?? trackAnalysis.tempo}
-            beatOffset={trackAnalysis.beatOffset ?? 0}
-            offsetX={offsetX}
-            scaleX={scaleX}
-          />
-        </div>
-      ) : null}
+    return (
       <div
+        ref={divRef}
         className={cn(
-          "absolute top-1/4 h-1/2 w-px bg-white",
-          !isSlicing ? "hidden" : "",
+          "relative h-full w-full touch-none bg-green-600",
+          className,
         )}
-        style={{ left: `${positionToPx(cursorPosition)}px` }}
-      ></div>
-      {draftSliceAnchorPosition && (
+      >
+        {duration !== undefined && trackAnalysis?.beats ? (
+          <div className="absolute left-0 top-0 h-full w-full">
+            <Waveform
+              className="pointer-events-none"
+              position={position}
+              duration={duration}
+              beats={trackAnalysis.beats}
+              tempo={trackAnalysis.userTapTempo ?? trackAnalysis.tempo}
+              beatOffset={trackAnalysis.beatOffset ?? 0}
+              offsetX={offsetX}
+              scaleX={scaleX}
+            />
+          </div>
+        ) : null}
         <div
           className={cn(
-            "absolute top-0 h-full w-px bg-white",
+            "absolute top-1/4 h-1/2 w-px bg-white",
             !isSlicing ? "hidden" : "",
           )}
-          style={{ left: `${positionToPx(draftSliceAnchorPosition)}px` }}
+          style={{ left: `${positionToPx(cursorPosition)}px` }}
         ></div>
-      )}
-      <SlicesLayer
-        slices={slices ?? []}
-        duration={duration}
-        onSlicingStart={onSlicingStart}
-        onChange={onSlicesChange}
-        onSlicingEnd={onSlicingEnd}
-        offsetX={offsetX}
-        scaleX={scaleX}
-      />
-    </div>
-  );
-}
+        {draftSliceAnchorPosition && (
+          <div
+            className={cn(
+              "absolute top-0 h-full w-px bg-white",
+              !isSlicing ? "hidden" : "",
+            )}
+            style={{ left: `${positionToPx(draftSliceAnchorPosition)}px` }}
+          ></div>
+        )}
+        <SlicesLayer
+          slices={slices ?? []}
+          duration={duration}
+          onSlicingStart={onSlicingStart}
+          onChange={onSlicesChange}
+          onSlicingEnd={onSlicingEnd}
+          offsetX={offsetX}
+          scaleX={scaleX}
+        />
+      </div>
+    );
+  },
+);
 
 type TrackInfoProps = {
   className?: string;
