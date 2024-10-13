@@ -1,4 +1,5 @@
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
+import { captureException, captureMessage } from "@sentry/nextjs";
 import { and, eq } from "drizzle-orm";
 import {
   getServerSession,
@@ -56,8 +57,9 @@ export const getSpotifyTokenOrRefresh = async (userId: string) => {
   if (
     spotifyAccount?.refresh_token &&
     spotifyAccount.expires_at &&
-    spotifyAccount.expires_at * 1000 < Date.now()
+    Date.now() > spotifyAccount.expires_at * 1000
   ) {
+    captureMessage("Refreshing Spotify Token");
     // Access token has expired, we need to refresh it
     const response = await fetch("https://accounts.spotify.com/api/token", {
       method: "POST",
@@ -111,6 +113,8 @@ export const getSpotifyTokenOrRefresh = async (userId: string) => {
     if (result.length > 0) {
       spotifyAccount = result[0];
     }
+  } else {
+    captureException(new Error("No refresh token found"));
   }
   return spotifyAccount;
 };

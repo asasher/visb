@@ -9,6 +9,8 @@ import {
   Fragment,
   MutableRefObject,
   Ref,
+  useCallback,
+  useEffect,
   useImperativeHandle,
   useRef,
   useState,
@@ -16,147 +18,267 @@ import {
 import { Button } from "~/components/ui/button";
 import { ArrowDown01, Loader2 } from "lucide-react";
 import { Waypoint } from "react-waypoint";
-import { Player } from "./spotify-player";
-import { captureException } from "@sentry/nextjs";
+import { Player, usePlayerState } from "./spotify-player";
+import { captureException, captureMessage } from "@sentry/nextjs";
 
 type SpotifyPlaylistProps = {
   deviceId: string;
 };
-export const SpotifyPlaylist = forwardRef(function SpotifyPlaylist(
-  { deviceId }: SpotifyPlaylistProps,
-  playerRef,
-) {
-  const {
-    data: playlists,
-    isLoading: isPlaylistsLoading,
-    fetchNextPage: fetchMorePlaylists,
-    hasNextPage: hasMorePlaylists,
-    isFetchingNextPage: isFetchingMorePlaylists,
-  } = api.spotify.playlists.useInfiniteQuery(
-    {
-      cursor: 0,
-    },
-    {
-      getNextPageParam: (lastPage) => lastPage.nextCursor,
-      initialCursor: 0,
-    },
-  );
-  const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null);
-
-  const { mutate: playOnDevice, isPending: isPlayOnDeviceLoading } =
-    api.spotify.playOnDevice.useMutation({
-      async onSettled(data, input, ctx) {
-        if (playerRef && "current" in playerRef && playerRef.current) {
-          console.log("Play on device settled. Resuming player.");
-          const player = playerRef.current as Player;
-          const state = await player.getCurrentState();
-          console.log("Device Id", ctx.deviceId);
-          console.log("Playlist Uri", ctx.playlistUri);
-          console.log("Track Uri", ctx.trackUri);
-          console.log(
-            "State",
-            state,
-            state.context,
-            state.context.metadata,
-            state.track_window,
-            state.disallows,
-          );
-          if (state?.context?.uri !== ctx.playlistUri) {
-            console.log("Reconnecting player just in case it's broken");
-            captureException(
-              new Error("Player's context uri is not the playlist uri"),
-            );
-            await player.connect();
-          }
-          await player.resume();
-        }
-      },
-    });
-
-  const {
-    data: tracks,
-    isLoading: isTracksLoading,
-    hasNextPage: hasMoreTracks,
-    fetchNextPage: fetchMoreTracks,
-    isFetchingNextPage: isFetchingMoreTracks,
-  } = api.spotify.getPlaylistTracks.useInfiniteQuery(
-    {
-      playlistId: activePlaylistId,
-    },
-    {
-      getNextPageParam: (lastPage) => lastPage.nextCursor,
-      initialCursor: 0,
-      enabled: !!activePlaylistId,
-    },
-  );
-
-  const activePlaylist = playlists?.pages
-    .flatMap((x) => x.items)
-    .find((x) => x.id === activePlaylistId);
-
-  return (
-    <>
-      {activePlaylist && (
-        <div className="relative mx-4 flex min-h-10 items-start justify-between overflow-hidden bg-green-500 p-0 text-left text-white">
-          <PlaylistCard
-            playlist={activePlaylist}
-            className="pointer-events-none"
-          />
-          <SortPlaylistByTempoButton
-            className="px-4 py-1"
-            spotifyPlaylistId={activePlaylist.id}
-            disabled={isPlaylistsLoading || isTracksLoading}
-          />
-          <Button
-            className="rounded-none py-1"
-            onClick={() => {
-              setActivePlaylistId(null);
-            }}
-            variant={"ghost"}
-            disabled={isTracksLoading || isPlaylistsLoading}
-          >
-            {"<--"}
-          </Button>
-        </div>
-      )}
+export const SpotifyPlaylist = forwardRef(
+  function SpotifyPlaylist(props, playerRef) {
+    const {
+      data: playlists,
+      isLoading: isPlaylistsLoading,
+      fetchNextPage: fetchMorePlaylists,
+      hasNextPage: hasMorePlaylists,
+      isFetchingNextPage: isFetchingMorePlaylists,
+    } = api.spotify.playlists.useInfiniteQuery(
       {
-        <ScrollArea
-          className={cn(
-            "mx-4 mb-4 h-full border-none",
-            isTracksLoading ? "animate-pulse" : "",
-            activePlaylist ? "rounded-t-none" : "",
-          )}
+        cursor: 0,
+      },
+      {
+        getNextPageParam: (lastPage) => lastPage.nextCursor,
+        initialCursor: 0,
+      },
+    );
+    const [activePlaylistId, setActivePlaylistId] = useState<string | null>(
+      null,
+    );
+
+    const { mutate: playOnDevice, isPending: isPlayOnDeviceLoading } =
+      api.spotify.playOnDevice.useMutation({
+        async onSettled(data, input, ctx) {
+          if (playerRef && "current" in playerRef && playerRef.current) {
+            console.log("Play on device settled. Resuming player.");
+            const player = playerRef.current as Player;
+            let state = await player.getCurrentState();
+            if (state?.context?.uri !== ctx.playlistUri) {
+              console.log("Reconnecting player just in case it's broken");
+              const isConnected = await player.connect();
+              console.log("Is player re-connected", isConnected);
+              captureException(
+                new Error("Player's context uri is not the playlist uri"),
+              );
+              // Attempt to reconnect
+              await reconnect(player);
+            }
+          }
+        },
+      });
+
+    const {
+      data: tracks,
+      isLoading: isTracksLoading,
+      hasNextPage: hasMoreTracks,
+      fetchNextPage: fetchMoreTracks,
+      isFetchingNextPage: isFetchingMoreTracks,
+    } = api.spotify.getPlaylistTracks.useInfiniteQuery(
+      {
+        playlistId: activePlaylistId,
+      },
+      {
+        getNextPageParam: (lastPage) => lastPage.nextCursor,
+        initialCursor: 0,
+        enabled: !!activePlaylistId,
+      },
+    );
+
+    const activePlaylist = playlists?.pages
+      .flatMap((x) => x.items)
+      .find((x) => x.id === activePlaylistId);
+
+    const setDeviceId = usePlayerState((state) => state.setDeviceId);
+    const deviceId = usePlayerState((state) => state.deviceId);
+    const reconnect = useCallback(
+      async (player: Player) => {
+        const state = await player.getCurrentState();
+        console.log(
+          "Context",
+          state?.context.uri,
+          state?.track_window.current_track,
+        );
+
+        console.log("Pausing playback");
+        await player.pause();
+
+        console.log("Disconnect player");
+        await player.disconnect();
+
+        console.log("Activating element");
+        await player.activateElement();
+
+        setDeviceId(null);
+
+        // For some reason this works better than trying to reconnect immediately
+        setTimeout(() => {
+          void player.connect();
+        }, 5000);
+      },
+      [deviceId, setDeviceId],
+    );
+
+    const restoreState = async (deviceId: string) => {
+      if (playerRef && "current" in playerRef && playerRef.current) {
+        console.log("Play on device settled. Resuming player.");
+        const player = playerRef.current as Player;
+        const state = await player.getCurrentState();
+        console.log("Resuming playback", deviceId);
+        if (state?.context?.uri && state?.track_window?.current_track?.uri) {
+          console.log("Playing the track");
+          playOnDevice({
+            deviceId,
+            playlistUri: state.context.uri,
+            trackUri: state.track_window.current_track.uri,
+          });
+        } else if (state?.context?.uri) {
+          console.log("No track uri, just playing the playlist");
+          playOnDevice({
+            deviceId,
+            playlistUri: state.context.uri,
+          });
+        }
+        if (state?.context?.uri) {
+          const playlistId = state.context.uri.split(":")[2];
+          if (playlistId) {
+            setActivePlaylistId(playlistId);
+          }
+        }
+      }
+    };
+
+    useEffect(() => {
+      console.log("Device Id changed", deviceId);
+      if (!deviceId) return;
+      restoreState(deviceId);
+    }, [deviceId]);
+
+    if (!deviceId) {
+      return null;
+    }
+
+    return (
+      <>
+        <Button
+          className="mx-4 bg-red-400 hover:bg-red-500"
+          onClick={() => {
+            console.log(playerRef);
+            if (playerRef && "current" in playerRef && playerRef.current) {
+              console.log("Play on device settled. Resuming player.");
+              const player = playerRef.current as Player;
+              void reconnect(player);
+            }
+          }}
         >
-          {!activePlaylist && (
-            <>
-              {playlists?.pages.map((page, i) => (
+          hit me if shit's broken
+        </Button>
+        {activePlaylist && (
+          <div className="relative mx-4 flex min-h-10 items-start justify-between overflow-hidden bg-green-500 p-0 text-left text-white">
+            <PlaylistCard
+              playlist={activePlaylist}
+              className="pointer-events-none"
+            />
+            <SortPlaylistByTempoButton
+              className="px-4 py-1"
+              spotifyPlaylistId={activePlaylist.id}
+              disabled={isPlaylistsLoading || isTracksLoading}
+            />
+            <Button
+              className="rounded-none py-1"
+              onClick={() => {
+                setActivePlaylistId(null);
+              }}
+              variant={"ghost"}
+              disabled={isTracksLoading || isPlaylistsLoading}
+            >
+              {"<--"}
+            </Button>
+          </div>
+        )}
+        {
+          <ScrollArea
+            className={cn(
+              "mx-4 mb-4 h-full border-none",
+              isTracksLoading ? "animate-pulse" : "",
+              activePlaylist ? "rounded-t-none" : "",
+            )}
+          >
+            {!activePlaylist && (
+              <>
+                {playlists?.pages.map((page, i) => (
+                  <Fragment key={i}>
+                    {page.items.map((playlist) => (
+                      <Button
+                        className={cn(
+                          "relative block h-fit w-full rounded-none border-none bg-slate-100 p-0 text-left text-black shadow-none hover:bg-slate-200",
+                        )}
+                        onClick={() => {
+                          setActivePlaylistId(playlist.id);
+                          if (
+                            playerRef &&
+                            "current" in playerRef &&
+                            playerRef.current
+                          ) {
+                            const player = playerRef.current as Player;
+                            void player.activateElement();
+                          }
+                          void playOnDevice({
+                            deviceId,
+                            playlistUri: playlist.uri,
+                          });
+                        }}
+                        disabled={isTracksLoading || isPlaylistsLoading}
+                        key={playlist.id}
+                      >
+                        <PlaylistCard
+                          playlist={playlist}
+                          className="pointer-events-none"
+                        />
+                        <p className="pointer-events-none absolute right-4 top-3 text-xs">
+                          Play
+                        </p>
+                      </Button>
+                    ))}
+                  </Fragment>
+                ))}
+                {(isPlaylistsLoading || isFetchingMorePlaylists) && (
+                  <>
+                    <div className="flex h-10 w-full animate-pulse bg-slate-50 odd:bg-slate-100 even:bg-slate-50"></div>
+                    <div className="flex h-10 w-full animate-pulse bg-slate-50 odd:bg-slate-100 even:bg-slate-50"></div>
+                    <div className="flex h-10 w-full animate-pulse bg-slate-50 odd:bg-slate-100 even:bg-slate-50"></div>
+                  </>
+                )}
+                {hasMorePlaylists && !isFetchingMorePlaylists && (
+                  <Waypoint onEnter={() => fetchMorePlaylists()} />
+                )}
+              </>
+            )}
+
+            {!!tracks &&
+              tracks.pages.map((page, i) => (
                 <Fragment key={i}>
-                  {page.items.map((playlist) => (
+                  {page.items.map((track) => (
                     <Button
                       className={cn(
                         "relative block h-fit w-full rounded-none border-none bg-slate-100 p-0 text-left text-black shadow-none hover:bg-slate-200",
                       )}
-                      onClick={() => {
-                        setActivePlaylistId(playlist.id);
-                        if (
-                          playerRef &&
-                          "current" in playerRef &&
-                          playerRef.current
-                        ) {
-                          const player = playerRef.current as Player;
-                          void player.activateElement();
-                        }
-                        void playOnDevice({
+                      onClick={() =>
+                        track.uri &&
+                        playOnDevice({
+                          playlistUri: activePlaylist?.uri,
+                          trackUri: track.uri,
                           deviceId,
-                          playlistUri: playlist.uri,
-                        });
-                      }}
-                      disabled={isTracksLoading || isPlaylistsLoading}
-                      key={playlist.id}
+                        })
+                      }
+                      disabled={
+                        isTracksLoading ||
+                        isPlaylistsLoading ||
+                        isPlayOnDeviceLoading
+                      }
+                      key={track.id}
                     >
-                      <PlaylistCard
-                        playlist={playlist}
-                        className="pointer-events-none"
+                      <TrackCard
+                        track={track}
+                        className="cursor-pointer odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200"
                       />
                       <p className="pointer-events-none absolute right-4 top-3 text-xs">
                         Play
@@ -165,68 +287,22 @@ export const SpotifyPlaylist = forwardRef(function SpotifyPlaylist(
                   ))}
                 </Fragment>
               ))}
-              {(isPlaylistsLoading || isFetchingMorePlaylists) && (
-                <>
-                  <div className="flex h-10 w-full animate-pulse bg-slate-50 odd:bg-slate-100 even:bg-slate-50"></div>
-                  <div className="flex h-10 w-full animate-pulse bg-slate-50 odd:bg-slate-100 even:bg-slate-50"></div>
-                  <div className="flex h-10 w-full animate-pulse bg-slate-50 odd:bg-slate-100 even:bg-slate-50"></div>
-                </>
-              )}
-              {hasMorePlaylists && !isFetchingMorePlaylists && (
-                <Waypoint onEnter={() => fetchMorePlaylists()} />
-              )}
-            </>
-          )}
-
-          {!!tracks &&
-            tracks.pages.map((page, i) => (
-              <Fragment key={i}>
-                {page.items.map((track) => (
-                  <Button
-                    className={cn(
-                      "relative block h-fit w-full rounded-none border-none bg-slate-100 p-0 text-left text-black shadow-none hover:bg-slate-200",
-                    )}
-                    onClick={() =>
-                      track.uri &&
-                      playOnDevice({
-                        playlistUri: activePlaylist?.uri,
-                        trackUri: track.uri,
-                        deviceId,
-                      })
-                    }
-                    disabled={
-                      isTracksLoading ||
-                      isPlaylistsLoading ||
-                      isPlayOnDeviceLoading
-                    }
-                    key={track.id}
-                  >
-                    <TrackCard
-                      track={track}
-                      className="cursor-pointer odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200"
-                    />
-                    <p className="pointer-events-none absolute right-4 top-3 text-xs">
-                      Play
-                    </p>
-                  </Button>
-                ))}
-              </Fragment>
-            ))}
-          {(isTracksLoading || isFetchingMoreTracks) && (
-            <>
-              <div className="flex h-10 w-full animate-pulse bg-slate-50 odd:bg-slate-100 even:bg-slate-50"></div>
-              <div className="flex h-10 w-full animate-pulse bg-slate-50 odd:bg-slate-100 even:bg-slate-50"></div>
-              <div className="flex h-10 w-full animate-pulse bg-slate-50 odd:bg-slate-100 even:bg-slate-50"></div>
-            </>
-          )}
-          {hasMoreTracks && !isFetchingMoreTracks && (
-            <Waypoint onEnter={() => fetchMoreTracks()} />
-          )}
-        </ScrollArea>
-      }
-    </>
-  );
-});
+            {(isTracksLoading || isFetchingMoreTracks) && (
+              <>
+                <div className="flex h-10 w-full animate-pulse bg-slate-50 odd:bg-slate-100 even:bg-slate-50"></div>
+                <div className="flex h-10 w-full animate-pulse bg-slate-50 odd:bg-slate-100 even:bg-slate-50"></div>
+                <div className="flex h-10 w-full animate-pulse bg-slate-50 odd:bg-slate-100 even:bg-slate-50"></div>
+              </>
+            )}
+            {hasMoreTracks && !isFetchingMoreTracks && (
+              <Waypoint onEnter={() => fetchMoreTracks()} />
+            )}
+          </ScrollArea>
+        }
+      </>
+    );
+  },
+);
 
 type CoverImageProps = {
   className?: string;

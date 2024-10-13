@@ -1,7 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import React, { useState, useEffect, useRef, Fragment } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  Fragment,
+  PropsWithChildren,
+} from "react";
 import { useDrag, useGesture } from "@use-gesture/react";
 import { nanoid } from "nanoid";
 import { useDebouncedCallback } from "use-debounce";
@@ -10,12 +16,13 @@ import { useAnimationFrame } from "~/lib/hooks";
 import { Waveform } from "./waveform";
 import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
-import { Loader2, Music, Slice } from "lucide-react";
+import { HeartCrack, Loader2, Music, Pause, Play, Slice } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { SpotifyPlaylist } from "./spotify-playlist";
 import TapTempoButton from "./tap-tempo-button";
 import { getSession } from "next-auth/react";
-import { captureEvent, captureException, captureMessage } from "@sentry/nextjs";
+import { captureException, captureMessage } from "@sentry/nextjs";
+import { create } from "zustand";
 
 // {
 //   uri: "spotify:track:xxxx", // Spotify URI
@@ -169,24 +176,127 @@ type LocalPlayerState = {
   duration: number;
   position: number;
   track: WebPlaybackTrack | null;
-  prevTrack: WebPlaybackTrack | null;
-  nextTrack: WebPlaybackTrack | null;
+  prevTrack?: WebPlaybackTrack | null;
+  nextTrack?: WebPlaybackTrack | null;
   deviceId: string | null;
+  needsRefresh: boolean;
 };
-export function SpotifyPlayer() {
-  const playerRef = useRef<Player>();
-  const [state, setState] = useState<LocalPlayerState>({
+
+type PlayerActions = {
+  setDeviceId: (deviceId: string | null) => void;
+  onStateChange: (
+    state: Omit<LocalPlayerState, "active" | "deviceId" | "needsRefresh">,
+  ) => void;
+  setPosition: (position: number) => void;
+};
+
+export const usePlayerState = create<LocalPlayerState & PlayerActions>(
+  (set) => ({
     active: false,
     paused: true,
-    duration: 1,
+    duration: 0,
     position: 0,
     track: null,
     prevTrack: null,
     nextTrack: null,
     deviceId: null,
-  });
-  const { paused, duration, position, track, prevTrack, nextTrack, deviceId } =
-    state;
+    needsRefresh: false,
+    setPosition: (position) => set({ position }),
+    setDeviceId: (deviceId) => set({ deviceId }),
+    onStateChange: (changedState) =>
+      set((state) => ({
+        ...state,
+        ...changedState,
+      })),
+  }),
+);
+
+function PlayerContainer({ children }: PropsWithChildren) {
+  return (
+    <div className="flex h-full w-full flex-col justify-end object-contain">
+      {children}
+    </div>
+  );
+}
+
+function PlayerNotReadyAlert() {
+  return (
+    <Alert className="rounded-none">
+      <Loader2 className="h-4 w-4 animate-spin" />
+      <AlertTitle>{"Connecting to Spotify"}</AlertTitle>
+      <AlertDescription>
+        Hold your headphones while we connect to Spotify
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+function DeviceNotReadyAlert() {
+  return (
+    <Alert className="rounded-none">
+      <Loader2 className="h-4 w-4 animate-spin" />
+      <AlertTitle>{"Getting this device ready"}</AlertTitle>
+      <AlertDescription>
+        Just a sec, we're getting this device ready
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+function NothingPlayingAlert() {
+  return (
+    <Alert className="rounded-none">
+      <Music className="h-4 w-4" />
+      <AlertTitle>{"Nothing's playing!"}</AlertTitle>
+      <AlertDescription>
+        Head over to Spotify and connect to Rock DJ to start playing or select
+        one of your playlists above.
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+function NeedsRefreshAlert() {
+  return (
+    <Alert className="rounded-none">
+      <HeartCrack className="h-4 w-4" />
+      <AlertTitle>{"Something went wrong."}</AlertTitle>
+      <AlertDescription>
+        It seems something is broken and we can't fix it, please refresh the
+        page.
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+export function SpotifyPlayer() {
+  const playerRef = useRef<Player>();
+
+  // const [state, setState] = useState<LocalPlayerState>({
+  //   active: false,
+  //   paused: true,
+  //   duration: 1,
+  //   position: 0,
+  //   track: null,
+  //   prevTrack: null,
+  //   nextTrack: null,
+  //   deviceId: null,
+  //   needsRefresh: false,
+  // });
+
+  const playerState = usePlayerState((state) => state);
+
+  const {
+    paused,
+    duration,
+    position,
+    track,
+    prevTrack,
+    nextTrack,
+    deviceId,
+    needsRefresh,
+  } = playerState;
+
   const { data: trackAnalysis } = api.spotify.analysis.useQuery(track?.id, {
     enabled: !!track,
   });
@@ -194,10 +304,13 @@ export function SpotifyPlayer() {
 
   useAnimationFrame((deltaTime) => {
     if (paused) return;
-    setState((prevState) => ({
-      ...prevState,
-      position: Math.min(prevState.position + deltaTime, prevState.duration),
-    }));
+    playerState.setPosition(
+      Math.min(playerState.position + deltaTime, duration),
+    );
+    // setState((prevState) => ({
+    //   ...prevState,
+    //   position: Math.min(prevState.position + deltaTime, prevState.duration),
+    // }));
   });
 
   const utils = api.useUtils();
@@ -247,8 +360,11 @@ export function SpotifyPlayer() {
 
   // Load Spotify Sdk
   useEffect(() => {
-    if (playerRef.current) return;
-
+    if (playerRef.current) {
+      console.log("Use effect called twice this should not happen.");
+      captureException("Use effect called twice this should not happen.");
+      return;
+    }
     const script = document.createElement("script");
     script.src = "https://sdk.scdn.co/spotify-player.js";
     script.async = true;
@@ -260,9 +376,11 @@ export function SpotifyPlayer() {
         name: "Rock DJ",
         getOAuthToken: (cb) => {
           async function getToken() {
+            console.log("Player is trying to fetch the token");
             captureMessage("Player is trying to fetch the token");
             const session = await getSession();
             if (!session?.user.accessToken) {
+              console.log("No access token in player cb");
               captureException(new Error("No access token in player cb"));
               return;
             }
@@ -276,18 +394,21 @@ export function SpotifyPlayer() {
 
       player.addListener("ready", ({ device_id }) => {
         console.log("Ready with Device ID", device_id);
-        setState((prevState) => ({
-          ...prevState,
-          deviceId: device_id,
-        }));
+        playerState.setDeviceId(device_id);
+        // setState((prevState) => ({
+        //   ...prevState,
+        //   deviceId: device_id,
+        //   needsRefresh: false,
+        // }));
       });
 
       player.addListener("not_ready", ({ device_id }) => {
         console.log("Device ID has gone offline", device_id);
-        setState((prevState) => ({
-          ...prevState,
-          deviceId: null,
-        }));
+        playerState.setDeviceId(null);
+        // setState((prevState) => ({
+        //   ...prevState,
+        //   deviceId: null,
+        // }));
       });
 
       player.on("playback_error", ({ message }) => {
@@ -311,44 +432,71 @@ export function SpotifyPlayer() {
       });
 
       player.addListener("player_state_changed", (state) => {
-        setState((prevState) => ({
-          ...prevState,
-          paused: state?.paused ?? prevState.paused,
-          duration: state?.duration ?? prevState.duration,
-          position: state?.position ?? prevState.position,
-          track: state?.track_window?.current_track ?? prevState.track,
-          prevTrack:
-            state?.track_window?.previous_tracks.slice(-1)[0] ??
-            prevState.prevTrack,
-          nextTrack: state?.track_window?.next_tracks[0] ?? prevState.nextTrack,
-        }));
-
-        void player.getCurrentState().then((state) => {
-          setState((prevState) => ({
-            ...prevState,
-            active: !!state,
-          }));
+        if (!state) {
+          console.log("Player state is null");
+          return;
+        }
+        playerState.onStateChange({
+          paused: state.paused,
+          duration: state.duration,
+          position: state.position,
+          track: state?.track_window?.current_track,
+          prevTrack: state?.track_window?.previous_tracks.slice(-1)[0],
+          nextTrack: state?.track_window?.next_tracks[0],
         });
+        // setState((prevState) => ({
+        //   ...prevState,
+        //   paused: state?.paused ?? prevState.paused,
+        //   duration: state?.duration ?? prevState.duration,
+        //   position: state?.position ?? prevState.position,
+        //   track: state?.track_window?.current_track ?? prevState.track,
+        //   prevTrack:
+        //     state?.track_window?.previous_tracks.slice(-1)[0] ??
+        //     prevState.prevTrack,
+        //   nextTrack: state?.track_window?.next_tracks[0] ?? prevState.nextTrack,
+        // }));
+
+        // void player.getCurrentState().then((state) => {
+        //   setState((prevState) => ({
+        //     ...prevState,
+        //     active: !!state,
+        //   }));
+        // });
       });
 
       void player.connect();
     };
   }, []);
 
+  // if (needsRefresh) {
+  //   return (
+  //     <PlayerContainer>
+  //       <NeedsRefreshAlert />
+  //     </PlayerContainer>
+  //   );
+  // }
+
+  if (!playerRef.current) {
+    return (
+      <PlayerContainer>
+        <PlayerNotReadyAlert />
+      </PlayerContainer>
+    );
+  }
+
+  if (!deviceId) {
+    return (
+      <PlayerContainer>
+        <DeviceNotReadyAlert />
+      </PlayerContainer>
+    );
+  }
+
   return (
-    <div className="flex h-full w-full flex-col justify-end object-contain">
-      {deviceId && <SpotifyPlaylist deviceId={deviceId} ref={playerRef} />}
-      {(!playerRef.current || !track) && (
-        <Alert className="rounded-none">
-          <Music className="h-4 w-4" />
-          <AlertTitle>{"Nothing's playing!"}</AlertTitle>
-          <AlertDescription>
-            Head over to Spotify and connect to Rock DJ to start playing or
-            select one of your playlists above.
-          </AlertDescription>
-        </Alert>
-      )}
-      {playerRef.current && track && (
+    <PlayerContainer>
+      {deviceId && <SpotifyPlaylist ref={playerRef} />}
+      {!track && <NothingPlayingAlert />}
+      {track && (
         <div className="grid w-full grid-cols-12 items-end justify-center shadow-lg">
           <div className="relative col-span-full h-20 overflow-hidden">
             <TrackProgress
@@ -393,7 +541,7 @@ export function SpotifyPlayer() {
                 <TapTempoButton
                   className="px-4 py-1 text-white"
                   spotifyTrackId={track.id}
-                  playbackState={state}
+                  playbackState={playerState}
                 />
               </div>
             </div>
@@ -407,7 +555,7 @@ export function SpotifyPlayer() {
           </div>
         </div>
       )}
-    </div>
+    </PlayerContainer>
   );
 }
 
@@ -789,8 +937,8 @@ type TrackControlsProps = {
   player: Player;
   paused: boolean;
   className?: string;
-  prevTrack: WebPlaybackTrack | null;
-  nextTrack: WebPlaybackTrack | null;
+  prevTrack?: WebPlaybackTrack | null;
+  nextTrack?: WebPlaybackTrack | null;
 };
 function TrackControls({
   player,
@@ -799,13 +947,24 @@ function TrackControls({
   nextTrack,
   className,
 }: TrackControlsProps) {
+  const togglePlay = async () => {
+    console.log("Activating element");
+    await player.activateElement();
+    if (paused) {
+      console.log("Resuming Play");
+      await player.resume();
+    } else {
+      console.log("Pausing Play");
+      await player.pause();
+    }
+  };
   return (
     <div className={cn("flex items-end justify-between text-white", className)}>
       <Button
         variant={"ghost"}
         className="me-5 px-4 py-1"
         onClick={() => {
-          void player.togglePlay();
+          void togglePlay();
         }}
       >
         {paused ? "Play" : "Pause"}
