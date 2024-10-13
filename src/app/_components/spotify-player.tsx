@@ -292,17 +292,20 @@ export function SpotifyPlayer() {
   const setDeviceId = usePlayerStore((state) => state.setDeviceId);
   const onStateChange = usePlayerStore((state) => state.onStateChange);
 
-  const { data: trackAnalysis } = api.spotify.analysis.useQuery(track?.id, {
-    enabled: !!track,
-  });
-  const [isSlicing, setIsSlicing] = useState(false);
-
   useAnimationFrame((deltaTime) => {
     if (paused) return;
     setPosition(Math.min(position + deltaTime, duration));
   });
 
   const utils = api.useUtils();
+
+  // Also using trpc to hold the state of the track analysis
+  const { data: trackAnalysis } = api.spotify.analysis.useQuery(track?.id, {
+    enabled: !!track,
+  });
+
+  // We're essentially using trpc to hold the state of slices so
+  // no need to manage it with zustrand
   const { data: slices, isLoading: isSlicesQueryLoading } =
     api.tracks.getSlices.useQuery(track?.id, {
       enabled: !!track,
@@ -336,6 +339,10 @@ export function SpotifyPlayer() {
     });
   };
 
+  // TODO: This state can potentially be moved to zustand
+  const [isSlicing, setIsSlicing] = useState(false);
+
+  // Handle whether or not we should play the current slice
   useEffect(() => {
     const currentSlice = slices?.find(
       (slice) =>
@@ -460,7 +467,7 @@ export function SpotifyPlayer() {
               }}
             />
           </div>
-          <TrackCover className="col-span-2 h-24" track={track} />
+          <TrackCover className="col-span-2 h-24" />
           <div
             className={`relative col-start-3 -col-end-1 flex h-full w-full flex-col justify-between bg-slate-700`}
           >
@@ -655,10 +662,10 @@ function SlicesLayer({
 }
 
 type TrackCoverProps = {
-  track: WebPlaybackTrack;
   className?: string;
 };
-function TrackCover({ track, className }: TrackCoverProps) {
+function TrackCover({ className }: TrackCoverProps) {
+  const track = usePlayerStore((state) => state.player.track);
   return (
     track?.album.images[0]?.url && (
       <div className={cn("relative h-full w-full", className)}>
