@@ -154,6 +154,12 @@ type State = {
   slices: {
     isSlicing: boolean;
   };
+  // Holds the last request made to the player. We'll use this to
+  // restore state in case player is disconnected
+  playbackRequest: {
+    playlistUri: string | null;
+    trackUri: string | null;
+  };
 };
 
 type Actions = {
@@ -163,6 +169,8 @@ type Actions = {
   ) => void;
   setPosition: (position: number) => void;
   setIsSlicing: (isSlicing: boolean) => void;
+  setRequestedPlaylist: (playlistUri: string) => void;
+  setRequestedTrack: (trackUri: string) => void;
 };
 
 export const usePlayerStore = create<State & Actions>()((set) => ({
@@ -179,6 +187,10 @@ export const usePlayerStore = create<State & Actions>()((set) => ({
   slices: {
     isSlicing: false,
   },
+  playbackRequest: {
+    playlistUri: null,
+    trackUri: null,
+  },
   setIsSlicing: (isSlicing: boolean) =>
     set((state) => ({ ...state, slices: { ...state.slices, isSlicing } })),
   setPosition: (position) =>
@@ -191,6 +203,22 @@ export const usePlayerStore = create<State & Actions>()((set) => ({
       player: {
         ...state.player,
         ...changedState,
+      },
+    })),
+  setRequestedPlaylist: (playlistUri: string) =>
+    set((state) => ({
+      ...state,
+      request: {
+        ...state.playbackRequest,
+        playlistUri,
+      },
+    })),
+  setRequestedTrack: (trackUri: string) =>
+    set((state) => ({
+      ...state,
+      request: {
+        ...state.playbackRequest,
+        trackUri,
       },
     })),
 }));

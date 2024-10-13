@@ -11,7 +11,7 @@ import { Waypoint } from "react-waypoint";
 import { captureException } from "@sentry/nextjs";
 import { Player, usePlayerStore } from "./user-player-store";
 
-export const SpotifyPlaylist = forwardRef(
+export const SpotifyPlaylist = forwardRef<Player, {}>(
   function SpotifyPlaylist(props, playerRef) {
     const {
       data: playlists,
@@ -34,22 +34,17 @@ export const SpotifyPlaylist = forwardRef(
 
     const { mutate: playOnDevice, isPending: isPlayOnDeviceLoading } =
       api.spotify.playOnDevice.useMutation({
-        async onSettled(data, input, ctx) {
-          if (playerRef && "current" in playerRef && playerRef.current) {
-            console.log("Play on device settled. Resuming player.");
-            const player = playerRef.current as Player;
-            const state = await player.getCurrentState();
-            if (state?.context?.uri !== ctx.playlistUri) {
-              console.log("Reconnecting player just in case it's broken");
-              const isConnected = await player.connect();
-              console.log("Is player re-connected", isConnected);
-              captureException(
-                new Error("Player's context uri is not the playlist uri"),
-              );
-              // Attempt to reconnect
-              await reconnect(player);
-            }
+        async onError(err, ctx) {
+          console.error(
+            "Got an error while trying to play on device. Attempting to reconnect.",
+            err,
+          );
+          if (!(playerRef && "current" in playerRef && playerRef.current)) {
+            console.error("Player is not defined. Aborting reconnect.");
+            return;
           }
+          const player = playerRef.current;
+          await reconnect(player);
         },
       });
 
@@ -105,34 +100,44 @@ export const SpotifyPlaylist = forwardRef(
       [deviceId, setDeviceId],
     );
 
-    const restoreState = async (deviceId: string) => {
-      if (playerRef && "current" in playerRef && playerRef.current) {
-        console.log("Play on device settled. Resuming player.");
-        const player = playerRef.current as Player;
-        const state = await player.getCurrentState();
-        console.log("Resuming playback", deviceId);
-        if (state?.context?.uri && state?.track_window?.current_track?.uri) {
+    const requestedPlaylistUri = usePlayerStore(
+      (state) => state.playbackRequest.playlistUri,
+    );
+    const requestedTrackUri = usePlayerStore(
+      (state) => state.playbackRequest.trackUri,
+    );
+    const setRequestedPlaylist = usePlayerStore(
+      (state) => state.setRequestedPlaylist,
+    );
+    const setRequestedTrack = usePlayerStore(
+      (state) => state.setRequestedTrack,
+    );
+
+    const restoreState = useCallback(
+      async (deviceId: string) => {
+        if (requestedPlaylistUri && requestedTrackUri) {
           console.log("Playing the track");
           playOnDevice({
             deviceId,
-            playlistUri: state.context.uri,
-            trackUri: state.track_window.current_track.uri,
+            playlistUri: requestedPlaylistUri,
+            trackUri: requestedTrackUri,
           });
-        } else if (state?.context?.uri) {
+        } else if (requestedPlaylistUri) {
           console.log("No track uri, just playing the playlist");
           playOnDevice({
             deviceId,
-            playlistUri: state.context.uri,
+            playlistUri: requestedPlaylistUri,
           });
         }
-        if (state?.context?.uri) {
-          const playlistId = state.context.uri.split(":")[2];
+        if (requestedPlaylistUri) {
+          const playlistId = requestedPlaylistUri.split(":")[2];
           if (playlistId) {
             setActivePlaylistId(playlistId);
           }
         }
-      }
-    };
+      },
+      [requestedPlaylistUri, requestedTrackUri],
+    );
 
     useEffect(() => {
       console.log("Device Id changed", deviceId);
@@ -208,10 +213,11 @@ export const SpotifyPlaylist = forwardRef(
                             "current" in playerRef &&
                             playerRef.current
                           ) {
-                            const player = playerRef.current as Player;
+                            const player = playerRef.current;
                             void player.activateElement();
                           }
                           if (deviceId) {
+                            setRequestedPlaylist(playlist.uri);
                             void playOnDevice({
                               deviceId,
                               playlistUri: playlist.uri,
@@ -258,8 +264,10 @@ export const SpotifyPlaylist = forwardRef(
                           return;
                         }
 
+                        setRequestedPlaylist(activePlaylist.uri);
+                        setRequestedTrack(track.uri);
                         playOnDevice({
-                          playlistUri: activePlaylist?.uri,
+                          playlistUri: activePlaylist.uri,
                           trackUri: track.uri,
                           trackPosition: tracks.pages
                             .flatMap((x) => x.items)
