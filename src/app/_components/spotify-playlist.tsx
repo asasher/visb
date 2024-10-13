@@ -145,7 +145,8 @@ export const SpotifyPlaylist = forwardRef(
       isPlaylistsLoading ||
       isTracksLoading ||
       isFetchingMorePlaylists ||
-      isFetchingMoreTracks;
+      isFetchingMoreTracks ||
+      isPlayOnDeviceLoading;
 
     return (
       <>
@@ -266,12 +267,7 @@ export const SpotifyPlaylist = forwardRef(
                           deviceId,
                         });
                       }}
-                      disabled={
-                        isTracksLoading ||
-                        isPlaylistsLoading ||
-                        isPlayOnDeviceLoading ||
-                        track.isRestricted
-                      }
+                      disabled={isActionsDisabled || track.isRestricted}
                       key={track.id}
                     >
                       <TrackCard
