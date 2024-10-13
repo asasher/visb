@@ -8,6 +8,7 @@ import React, {
   Fragment,
   PropsWithChildren,
   use,
+  forwardRef,
 } from "react";
 import { useDrag, useGesture } from "@use-gesture/react";
 import { nanoid } from "nanoid";
@@ -472,13 +473,7 @@ export function SpotifyPlayer() {
             className={`relative col-start-3 -col-end-1 flex h-full w-full flex-col justify-between bg-slate-700`}
           >
             <div className="flex">
-              <TrackControls
-                className="flex-grow"
-                paused={paused}
-                player={playerRef.current}
-                nextTrack={nextTrack}
-                prevTrack={prevTrack}
-              />
+              <TrackControls className="flex-grow" ref={playerRef} />
               <div className="flex">
                 <Button
                   variant={"ghost"}
@@ -888,67 +883,68 @@ function TrackInfo({
 }
 
 type TrackControlsProps = {
-  player: Player;
-  paused: boolean;
   className?: string;
-  prevTrack?: WebPlaybackTrack | null;
-  nextTrack?: WebPlaybackTrack | null;
 };
-function TrackControls({
-  player,
-  paused,
-  prevTrack,
-  nextTrack,
-  className,
-}: TrackControlsProps) {
-  const togglePlay = async () => {
-    console.log("Activating element");
-    await player.activateElement();
-    if (paused) {
-      console.log("Resuming Play");
-      await player.resume();
-    } else {
-      console.log("Pausing Play");
-      await player.pause();
-    }
-  };
-  return (
-    <div className={cn("flex items-end justify-between text-white", className)}>
-      <Button
-        variant={"ghost"}
-        className="me-5 px-4 py-1"
-        onClick={() => {
-          void togglePlay();
-        }}
+const TrackControls = forwardRef<Player, TrackControlsProps>(
+  function TrackControls({ className }, ref) {
+    const paused = usePlayerStore((state) => state.player.paused);
+    const prevTrack = usePlayerStore((state) => state.player.prevTrack);
+    const nextTrack = usePlayerStore((state) => state.player.nextTrack);
+
+    // At this point player is guaranteed to be defined
+    const player = (ref && "current" in ref ? ref.current : null) as Player;
+
+    const togglePlay = async () => {
+      console.log("Activating element");
+      await player.activateElement();
+      if (paused) {
+        console.log("Resuming Play");
+        await player.resume();
+      } else {
+        console.log("Pausing Play");
+        await player.pause();
+      }
+    };
+    return (
+      <div
+        className={cn("flex items-end justify-between text-white", className)}
       >
-        {paused ? "Play" : "Pause"}
-      </Button>
-      <div>
-        {prevTrack && (
-          <Button
-            variant={"ghost"}
-            className="px-2 py-1"
-            onClick={() => {
-              void player.previousTrack();
-            }}
-          >
-            <span className="sm:me-2">{"<--"}</span>
-            <span className="hidden sm:inline">{prevTrack.name}</span>
-          </Button>
-        )}
-        {nextTrack && (
-          <Button
-            variant={"ghost"}
-            className="px-4 py-1"
-            onClick={() => {
-              void player.nextTrack();
-            }}
-          >
-            <span className="hidden sm:inline">{nextTrack.name}</span>
-            <span className="sm:ms-2">{"-->"}</span>
-          </Button>
-        )}
+        <Button
+          variant={"ghost"}
+          className="me-5 px-4 py-1"
+          onClick={() => {
+            void togglePlay();
+          }}
+        >
+          {paused ? "Play" : "Pause"}
+        </Button>
+        <div>
+          {prevTrack && (
+            <Button
+              variant={"ghost"}
+              className="px-2 py-1"
+              onClick={() => {
+                void player.previousTrack();
+              }}
+            >
+              <span className="sm:me-2">{"<--"}</span>
+              <span className="hidden sm:inline">{prevTrack.name}</span>
+            </Button>
+          )}
+          {nextTrack && (
+            <Button
+              variant={"ghost"}
+              className="px-4 py-1"
+              onClick={() => {
+                void player.nextTrack();
+              }}
+            >
+              <span className="hidden sm:inline">{nextTrack.name}</span>
+              <span className="sm:ms-2">{"-->"}</span>
+            </Button>
+          )}
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  },
+);
