@@ -273,30 +273,10 @@ function NeedsRefreshAlert() {
 export function SpotifyPlayer() {
   const playerRef = useRef<Player>();
 
-  // const [state, setState] = useState<LocalPlayerState>({
-  //   active: false,
-  //   paused: true,
-  //   duration: 1,
-  //   position: 0,
-  //   track: null,
-  //   prevTrack: null,
-  //   nextTrack: null,
-  //   deviceId: null,
-  //   needsRefresh: false,
-  // });
-
   const playerState = usePlayerState((state) => state);
 
-  const {
-    paused,
-    duration,
-    position,
-    track,
-    prevTrack,
-    nextTrack,
-    deviceId,
-    needsRefresh,
-  } = playerState;
+  const { paused, duration, position, track, prevTrack, nextTrack, deviceId } =
+    playerState;
 
   const { data: trackAnalysis } = api.spotify.analysis.useQuery(track?.id, {
     enabled: !!track,
@@ -308,10 +288,6 @@ export function SpotifyPlayer() {
     playerState.setPosition(
       Math.min(playerState.position + deltaTime, duration),
     );
-    // setState((prevState) => ({
-    //   ...prevState,
-    //   position: Math.min(prevState.position + deltaTime, prevState.duration),
-    // }));
   });
 
   const utils = api.useUtils();
@@ -396,20 +372,11 @@ export function SpotifyPlayer() {
       player.addListener("ready", ({ device_id }) => {
         console.log("Ready with Device ID", device_id);
         playerState.setDeviceId(device_id);
-        // setState((prevState) => ({
-        //   ...prevState,
-        //   deviceId: device_id,
-        //   needsRefresh: false,
-        // }));
       });
 
       player.addListener("not_ready", ({ device_id }) => {
         console.log("Device ID has gone offline", device_id);
         playerState.setDeviceId(null);
-        // setState((prevState) => ({
-        //   ...prevState,
-        //   deviceId: null,
-        // }));
       });
 
       player.on("playback_error", ({ message }) => {
@@ -445,37 +412,11 @@ export function SpotifyPlayer() {
           prevTrack: state?.track_window?.previous_tracks.slice(-1)[0],
           nextTrack: state?.track_window?.next_tracks[0],
         });
-        // setState((prevState) => ({
-        //   ...prevState,
-        //   paused: state?.paused ?? prevState.paused,
-        //   duration: state?.duration ?? prevState.duration,
-        //   position: state?.position ?? prevState.position,
-        //   track: state?.track_window?.current_track ?? prevState.track,
-        //   prevTrack:
-        //     state?.track_window?.previous_tracks.slice(-1)[0] ??
-        //     prevState.prevTrack,
-        //   nextTrack: state?.track_window?.next_tracks[0] ?? prevState.nextTrack,
-        // }));
-
-        // void player.getCurrentState().then((state) => {
-        //   setState((prevState) => ({
-        //     ...prevState,
-        //     active: !!state,
-        //   }));
-        // });
       });
 
       void player.connect();
     };
   }, []);
-
-  // if (needsRefresh) {
-  //   return (
-  //     <PlayerContainer>
-  //       <NeedsRefreshAlert />
-  //     </PlayerContainer>
-  //   );
-  // }
 
   if (!playerRef.current) {
     return (
