@@ -351,7 +351,7 @@ export function SpotifyPlayer() {
     );
     if (!currentSlice) return;
     if (!currentSlice?.shouldPlay) {
-      void playerRef.current?.seek(currentSlice?.endPosition);
+      void playerRef.current?.seek(currentSlice?.endPosition + 1);
     }
   }, [position, slices]);
 
