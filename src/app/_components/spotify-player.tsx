@@ -7,6 +7,7 @@ import React, {
   useRef,
   Fragment,
   PropsWithChildren,
+  use,
 } from "react";
 import { useDrag, useGesture } from "@use-gesture/react";
 import { nanoid } from "nanoid";
@@ -171,8 +172,7 @@ type Slice = {
   shouldPlay: boolean;
 };
 
-type LocalPlayerState = {
-  active: boolean;
+type PlayerState = {
   paused: boolean;
   duration: number;
   position: number;
@@ -180,19 +180,22 @@ type LocalPlayerState = {
   prevTrack?: WebPlaybackTrack | null;
   nextTrack?: WebPlaybackTrack | null;
   deviceId: string | null;
-  needsRefresh: boolean;
 };
 
-type PlayerActions = {
+type State = {
+  player: PlayerState;
+};
+
+type Actions = {
   setDeviceId: (deviceId: string | null) => void;
   onStateChange: (
-    state: Omit<LocalPlayerState, "active" | "deviceId" | "needsRefresh">,
+    state: Omit<PlayerState, "active" | "deviceId" | "needsRefresh">,
   ) => void;
   setPosition: (position: number) => void;
 };
 
-export const usePlayerState = create<LocalPlayerState & PlayerActions>()(
-  immer((set) => ({
+export const usePlayerStore = create<State & Actions>()((set) => ({
+  player: {
     active: false,
     paused: true,
     duration: 0,
@@ -201,16 +204,20 @@ export const usePlayerState = create<LocalPlayerState & PlayerActions>()(
     prevTrack: null,
     nextTrack: null,
     deviceId: null,
-    needsRefresh: false,
-    setPosition: (position) => set({ position }),
-    setDeviceId: (deviceId) => set({ deviceId }),
-    onStateChange: (changedState) =>
-      set((state) => ({
-        ...state,
+  },
+  setPosition: (position) =>
+    set((state) => ({ ...state, player: { ...state.player, position } })),
+  setDeviceId: (deviceId) =>
+    set((state) => ({ ...state, player: { ...state.player, deviceId } })),
+  onStateChange: (changedState) =>
+    set((state) => ({
+      ...state,
+      player: {
+        ...state.player,
         ...changedState,
-      })),
-  })),
-);
+      },
+    })),
+}));
 
 function PlayerContainer({ children }: PropsWithChildren) {
   return (
@@ -274,10 +281,16 @@ function NeedsRefreshAlert() {
 export function SpotifyPlayer() {
   const playerRef = useRef<Player>();
 
-  const playerState = usePlayerState((state) => state);
-
-  const { paused, duration, position, track, prevTrack, nextTrack, deviceId } =
-    playerState;
+  const paused = usePlayerStore((state) => state.player.paused);
+  const duration = usePlayerStore((state) => state.player.duration);
+  const position = usePlayerStore((state) => state.player.position);
+  const track = usePlayerStore((state) => state.player.track);
+  const prevTrack = usePlayerStore((state) => state.player.prevTrack);
+  const nextTrack = usePlayerStore((state) => state.player.nextTrack);
+  const deviceId = usePlayerStore((state) => state.player.deviceId);
+  const setPosition = usePlayerStore((state) => state.setPosition);
+  const setDeviceId = usePlayerStore((state) => state.setDeviceId);
+  const onStateChange = usePlayerStore((state) => state.onStateChange);
 
   const { data: trackAnalysis } = api.spotify.analysis.useQuery(track?.id, {
     enabled: !!track,
@@ -286,9 +299,7 @@ export function SpotifyPlayer() {
 
   useAnimationFrame((deltaTime) => {
     if (paused) return;
-    playerState.setPosition(
-      Math.min(playerState.position + deltaTime, duration),
-    );
+    setPosition(Math.min(position + deltaTime, duration));
   });
 
   const utils = api.useUtils();
@@ -372,12 +383,12 @@ export function SpotifyPlayer() {
 
       player.addListener("ready", ({ device_id }) => {
         console.log("Ready with Device ID", device_id);
-        playerState.setDeviceId(device_id);
+        setDeviceId(device_id);
       });
 
       player.addListener("not_ready", ({ device_id }) => {
         console.log("Device ID has gone offline", device_id);
-        playerState.setDeviceId(null);
+        setDeviceId(null);
       });
 
       player.on("playback_error", ({ message }) => {
@@ -405,7 +416,7 @@ export function SpotifyPlayer() {
           console.log("Player state is null");
           return;
         }
-        playerState.onStateChange({
+        onStateChange({
           paused: state.paused,
           duration: state.duration,
           position: state.position,
@@ -427,16 +438,9 @@ export function SpotifyPlayer() {
     );
   }
 
-  if (!deviceId) {
-    return (
-      <PlayerContainer>
-        <DeviceNotReadyAlert />
-      </PlayerContainer>
-    );
-  }
-
   return (
     <PlayerContainer>
+      {!deviceId && <DeviceNotReadyAlert />}
       {deviceId && <SpotifyPlaylist ref={playerRef} />}
       {!track && <NothingPlayingAlert />}
       {track && (
@@ -484,7 +488,7 @@ export function SpotifyPlayer() {
                 <TapTempoButton
                   className="px-4 py-1 text-white"
                   spotifyTrackId={track.id}
-                  playbackState={playerState}
+                  playbackState={{ position, duration }}
                 />
               </div>
             </div>

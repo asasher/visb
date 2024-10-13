@@ -4,26 +4,13 @@ import Image from "next/image";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ScrollArea } from "~/components/ui/scroll-area";
-import {
-  forwardRef,
-  Fragment,
-  MutableRefObject,
-  Ref,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useRef,
-  useState,
-} from "react";
+import { forwardRef, Fragment, useCallback, useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { ArrowDown01, Loader2 } from "lucide-react";
 import { Waypoint } from "react-waypoint";
-import { Player, usePlayerState } from "./spotify-player";
-import { captureException, captureMessage } from "@sentry/nextjs";
+import { Player, usePlayerStore } from "./spotify-player";
+import { captureException } from "@sentry/nextjs";
 
-type SpotifyPlaylistProps = {
-  deviceId: string;
-};
 export const SpotifyPlaylist = forwardRef(
   function SpotifyPlaylist(props, playerRef) {
     const {
@@ -87,8 +74,8 @@ export const SpotifyPlaylist = forwardRef(
       .flatMap((x) => x.items)
       .find((x) => x.id === activePlaylistId);
 
-    const setDeviceId = usePlayerState((state) => state.setDeviceId);
-    const deviceId = usePlayerState((state) => state.deviceId);
+    const setDeviceId = usePlayerStore((state) => state.setDeviceId);
+    const deviceId = usePlayerStore((state) => state.player.deviceId);
     const reconnect = useCallback(
       async (player: Player) => {
         const state = await player.getCurrentState();
@@ -256,23 +243,28 @@ export const SpotifyPlaylist = forwardRef(
             {!!tracks &&
               tracks.pages.map((page, i) => (
                 <Fragment key={i}>
-                  {page.items.map((track) => (
+                  {page.items.map((track, j) => (
                     <Button
                       className={cn(
                         "relative block h-fit w-full rounded-none border-none bg-slate-100 p-0 text-left text-black shadow-none hover:bg-slate-200",
                       )}
                       onClick={() =>
                         track.uri &&
+                        activePlaylist?.uri &&
                         playOnDevice({
                           playlistUri: activePlaylist?.uri,
                           trackUri: track.uri,
+                          trackPosition: tracks.pages
+                            .flatMap((x) => x.items)
+                            .findIndex((x) => x.uri === track.uri),
                           deviceId,
                         })
                       }
                       disabled={
                         isTracksLoading ||
                         isPlaylistsLoading ||
-                        isPlayOnDeviceLoading
+                        isPlayOnDeviceLoading ||
+                        track.isRestricted
                       }
                       key={track.id}
                     >
@@ -367,6 +359,7 @@ type TrackCardProps = {
     tempo?: number;
     time_signature?: number;
     userTapTempo?: number | null;
+    isRestricted?: boolean;
   };
   className?: string;
   onClick?: () => void;
@@ -384,7 +377,12 @@ function TrackCard({ track, className, onClick }: TrackCardProps) {
         alt={track.name}
       />
       <div className="w-8/12 overflow-x-scroll">
-        <p className="inline-flex max-w-48 overflow-hidden text-sm md:max-w-none">
+        <p
+          className={cn(
+            "inline-flex max-w-48 overflow-hidden text-sm md:max-w-none",
+            track.isRestricted ? "line-through" : "",
+          )}
+        >
           {track.name}
         </p>
         <p className="ms-4 inline-flex items-center text-xs">

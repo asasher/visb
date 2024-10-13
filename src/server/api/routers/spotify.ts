@@ -56,8 +56,9 @@ export const spotifyRouter = createTRPCRouter({
   playOnDevice: protectedProcedure
     .input(
       z.object({
-        playlistUri: z.string().optional(),
+        playlistUri: z.string(),
         trackUri: z.string().optional(),
+        trackPosition: z.number().optional(),
         deviceId: z.string(),
       }),
     )
@@ -75,13 +76,21 @@ export const spotifyRouter = createTRPCRouter({
 
       const playbackState = await sdk.player.getPlaybackState();
       if (playbackState?.device.id !== inputDevice.id) {
+        console.log("Transferring playback to current device");
         await sdk.player.transferPlayback([input.deviceId], true);
       }
+
+      // Some tracks only play when I send position, there is some weird shit happening
+      // maybe it's due to the relinking stuff Spotify does
       await sdk.player.startResumePlayback(
         input.deviceId,
         input.playlistUri,
         undefined,
-        input.trackUri ? { uri: input.trackUri } : undefined,
+        input.trackPosition
+          ? { position: input.trackPosition }
+          : input.trackUri
+            ? { uri: input.trackUri }
+            : undefined,
       );
     }),
   addToQueue: protectedProcedure
@@ -116,7 +125,6 @@ export const spotifyRouter = createTRPCRouter({
         limit,
         cursor,
       );
-      console.log("Getting Playlists", cursor, limit);
       const items = playlists.items
         .filter((playlist) => playlist.owner.id === spotifyUserId)
         .map((playlist) => ({
@@ -168,6 +176,7 @@ export const spotifyRouter = createTRPCRouter({
         name: track.track.name,
         imageUrl: track.track.album.images[0]?.url,
         duration: track.track.duration_ms,
+        isRestricted: !!track.track.restrictions?.reason,
         ...trackFeatures.find((feature) => feature?.id === track.track.id),
       }));
       const combinedTracks = spotifyTracks.map((track) => ({
