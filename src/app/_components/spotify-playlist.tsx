@@ -214,6 +214,7 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
                           ) {
                             const player = playerRef.current;
                             void player.activateElement();
+                            void player.resume();
                           }
                           if (deviceId) {
                             setRequestedPlaylist(playlist.uri);
@@ -273,6 +274,15 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
                             .findIndex((x) => x.uri === track.uri),
                           deviceId,
                         });
+                        if (
+                          playerRef &&
+                          "current" in playerRef &&
+                          playerRef.current
+                        ) {
+                          const player = playerRef.current;
+                          void player.activateElement();
+                          void player.resume();
+                        }
                       }}
                       disabled={isActionsDisabled || track.isRestricted}
                       key={track.id}
