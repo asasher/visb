@@ -76,8 +76,11 @@ export const SpotifyPlaylist = forwardRef(
 
     const setDeviceId = usePlayerStore((state) => state.setDeviceId);
     const deviceId = usePlayerStore((state) => state.player.deviceId);
+
     const reconnect = useCallback(
       async (player: Player) => {
+        setDeviceId(null);
+
         const state = await player.getCurrentState();
         console.log(
           "Context",
@@ -93,8 +96,6 @@ export const SpotifyPlaylist = forwardRef(
 
         console.log("Activating element");
         await player.activateElement();
-
-        setDeviceId(null);
 
         // For some reason this works better than trying to reconnect immediately
         setTimeout(() => {
@@ -139,18 +140,19 @@ export const SpotifyPlaylist = forwardRef(
       void restoreState(deviceId);
     }, [deviceId]);
 
-    if (!deviceId) {
-      return null;
-    }
+    const isActionsDisabled =
+      !deviceId ||
+      isPlaylistsLoading ||
+      isTracksLoading ||
+      isFetchingMorePlaylists ||
+      isFetchingMoreTracks;
 
     return (
       <>
         <Button
           className="mx-4 bg-red-400 hover:bg-red-500"
           onClick={() => {
-            console.log(playerRef);
             if (playerRef && "current" in playerRef && playerRef.current) {
-              console.log("Play on device settled. Resuming player.");
               const player = playerRef.current as Player;
               void reconnect(player);
             }
@@ -167,7 +169,7 @@ export const SpotifyPlaylist = forwardRef(
             <SortPlaylistByTempoButton
               className="px-4 py-1"
               spotifyPlaylistId={activePlaylist.id}
-              disabled={isPlaylistsLoading || isTracksLoading}
+              disabled={isActionsDisabled}
             />
             <Button
               className="rounded-none py-1"
@@ -175,7 +177,7 @@ export const SpotifyPlaylist = forwardRef(
                 setActivePlaylistId(null);
               }}
               variant={"ghost"}
-              disabled={isTracksLoading || isPlaylistsLoading}
+              disabled={isActionsDisabled}
             >
               {"<--"}
             </Button>
@@ -208,12 +210,14 @@ export const SpotifyPlaylist = forwardRef(
                             const player = playerRef.current as Player;
                             void player.activateElement();
                           }
-                          void playOnDevice({
-                            deviceId,
-                            playlistUri: playlist.uri,
-                          });
+                          if (deviceId) {
+                            void playOnDevice({
+                              deviceId,
+                              playlistUri: playlist.uri,
+                            });
+                          }
                         }}
-                        disabled={isTracksLoading || isPlaylistsLoading}
+                        disabled={isActionsDisabled}
                         key={playlist.id}
                       >
                         <PlaylistCard
@@ -248,9 +252,11 @@ export const SpotifyPlaylist = forwardRef(
                       className={cn(
                         "relative block h-fit w-full rounded-none border-none bg-slate-100 p-0 text-left text-black shadow-none hover:bg-slate-200",
                       )}
-                      onClick={() =>
-                        track.uri &&
-                        activePlaylist?.uri &&
+                      onClick={() => {
+                        if (!deviceId || !activePlaylist?.uri || !track.uri) {
+                          return;
+                        }
+
                         playOnDevice({
                           playlistUri: activePlaylist?.uri,
                           trackUri: track.uri,
@@ -258,8 +264,8 @@ export const SpotifyPlaylist = forwardRef(
                             .flatMap((x) => x.items)
                             .findIndex((x) => x.uri === track.uri),
                           deviceId,
-                        })
-                      }
+                        });
+                      }}
                       disabled={
                         isTracksLoading ||
                         isPlaylistsLoading ||

@@ -440,8 +440,8 @@ export function SpotifyPlayer() {
 
   return (
     <PlayerContainer>
+      <SpotifyPlaylist ref={playerRef} />
       {!deviceId && <DeviceNotReadyAlert />}
-      {deviceId && <SpotifyPlaylist ref={playerRef} />}
       {!track && <NothingPlayingAlert />}
       {track && (
         <div className="grid w-full grid-cols-12 items-end justify-center shadow-lg">
