@@ -150,7 +150,7 @@ export const SpotifyPlaylist = forwardRef(
 
     return (
       <>
-        <Button
+        {/* <Button
           className="mx-4 bg-red-400 hover:bg-red-500"
           onClick={() => {
             if (playerRef && "current" in playerRef && playerRef.current) {
@@ -160,7 +160,7 @@ export const SpotifyPlaylist = forwardRef(
           }}
         >
           {"hit me if shit's broken"}
-        </Button>
+        </Button> */}
         {activePlaylist && (
           <div className="relative mx-4 flex min-h-10 items-start justify-between overflow-hidden bg-green-500 p-0 text-left text-white">
             <PlaylistCard

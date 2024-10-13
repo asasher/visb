@@ -633,7 +633,7 @@ function TrackInfo({ className }: TrackInfoProps) {
       </p>
       {trackAnalysis && (
         <>
-          <p className="me-2 inline-flex items-center font-mono text-xs">
+          <p className="me-3 inline-flex items-center font-mono text-xs">
             {Math.floor(trackAnalysis.tempo)}{" "}
             {trackAnalysis.userTapTempo
               ? `(${trackAnalysis.userTapTempo})`
