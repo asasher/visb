@@ -280,7 +280,7 @@ function NeedsRefreshAlert() {
 }
 
 export function SpotifyPlayer() {
-  const playerRef = useRef<Player>();
+  const playerRef = useRef<Player>(null);
 
   const paused = usePlayerStore((state) => state.player.paused);
   const duration = usePlayerStore((state) => state.player.duration);
