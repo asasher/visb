@@ -286,8 +286,6 @@ export function SpotifyPlayer() {
   const duration = usePlayerStore((state) => state.player.duration);
   const position = usePlayerStore((state) => state.player.position);
   const track = usePlayerStore((state) => state.player.track);
-  const prevTrack = usePlayerStore((state) => state.player.prevTrack);
-  const nextTrack = usePlayerStore((state) => state.player.nextTrack);
   const deviceId = usePlayerStore((state) => state.player.deviceId);
   const setPosition = usePlayerStore((state) => state.setPosition);
   const setDeviceId = usePlayerStore((state) => state.setDeviceId);
@@ -845,22 +843,15 @@ function TrackProgress({
 }
 
 type TrackInfoProps = {
-  track: WebPlaybackTrack;
-  position: number;
-  duration: number;
-  trackAnalysis?: {
-    tempo: number;
-    time_signature: number;
-  } | null;
   className?: string;
 };
-function TrackInfo({
-  track,
-  position,
-  duration,
-  trackAnalysis,
-  className,
-}: TrackInfoProps) {
+function TrackInfo({ className }: TrackInfoProps) {
+  const track = usePlayerStore((state) => state.player.track);
+  const position = usePlayerStore((state) => state.player.position);
+  const duration = usePlayerStore((state) => state.player.duration);
+  const { data: trackAnalysis } = api.spotify.analysis.useQuery(track?.id, {
+    enabled: !!track,
+  });
   return (
     <div className={cn("text-xs text-white", className)}>
       <p className="mb-1 text-base">{track?.name}</p>
