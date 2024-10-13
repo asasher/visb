@@ -59,7 +59,7 @@ function DeviceNotReadyAlert() {
       <Loader2 className="h-4 w-4 animate-spin" />
       <AlertTitle>{"Just a sec"}</AlertTitle>
       <AlertDescription>
-        {"We're getting this ready for playback"}
+        {"We're getting this device ready for playback"}
       </AlertDescription>
     </Alert>
   );
@@ -135,6 +135,8 @@ export function SpotifyPlayer() {
   const isSlicing = usePlayerStore((state) => state.slices.isSlicing);
   const setIsSlicing = usePlayerStore((state) => state.setIsSlicing);
 
+  const resetPlayerState = usePlayerStore((state) => state.resetPlayerState);
+
   // Handle whether or not we should play the current slice
   useEffect(() => {
     const currentSlice = slices?.find(
@@ -183,6 +185,7 @@ export function SpotifyPlayer() {
 
       player.addListener("ready", ({ device_id }) => {
         console.log("Ready with Device ID", device_id);
+        resetPlayerState(); // Useful especially when we're reconnecting
         setDeviceId(device_id);
       });
 

@@ -93,7 +93,6 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
 
         // For some reason this works better than trying to reconnect immediately
         setTimeout(() => {
-          resetPlayerState();
           void player.connect();
         }, 5000);
       },
