@@ -208,6 +208,7 @@ export const usePlayerStore = create<State & Actions>()((set) => ({
         track: null,
         duration: 0,
         position: 0,
+        paused: true,
       },
     })),
   onStateChange: (changedState) =>
