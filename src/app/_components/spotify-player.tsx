@@ -466,7 +466,7 @@ const TrackProgress = forwardRef<Player, TrackProgressProps>(
       enabled: !!track,
     });
 
-    const player = (ref && "current" in ref ? ref.current : null) as Player;
+    const player = ref && "current" in ref ? ref.current! : null;
 
     const isSlicing = usePlayerStore((state) => state.slices.isSlicing);
     const setIsSlicing = usePlayerStore((state) => state.setIsSlicing);
@@ -532,7 +532,7 @@ const TrackProgress = forwardRef<Player, TrackProgressProps>(
 
           if (tap) {
             const newPosition = pxToPosition(x);
-            void player.seek(newPosition);
+            void player?.seek(newPosition);
             return;
           }
 
@@ -659,17 +659,17 @@ const TrackControls = forwardRef<Player, TrackControlsProps>(
     const nextTrack = usePlayerStore((state) => state.player.nextTrack);
 
     // At this point player is guaranteed to be defined
-    const player = (ref && "current" in ref ? ref.current : null) as Player;
+    const player = ref && "current" in ref ? ref.current! : null;
 
     const togglePlay = async () => {
       console.log("Activating element");
-      await player.activateElement();
+      await player?.activateElement();
       if (paused) {
         console.log("Resuming Play");
-        await player.resume();
+        await player?.resume();
       } else {
         console.log("Pausing Play");
-        await player.pause();
+        await player?.pause();
       }
     };
     return (
@@ -691,7 +691,7 @@ const TrackControls = forwardRef<Player, TrackControlsProps>(
               variant={"ghost"}
               className="px-2 py-1"
               onClick={() => {
-                void player.previousTrack();
+                void player?.previousTrack();
               }}
             >
               <span className="sm:me-2">{"<--"}</span>
@@ -703,7 +703,7 @@ const TrackControls = forwardRef<Player, TrackControlsProps>(
               variant={"ghost"}
               className="px-4 py-1"
               onClick={() => {
-                void player.nextTrack();
+                void player?.nextTrack();
               }}
             >
               <span className="hidden sm:inline">{nextTrack.name}</span>
