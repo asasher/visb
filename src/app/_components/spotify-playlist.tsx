@@ -8,8 +8,8 @@ import { forwardRef, Fragment, useCallback, useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { ArrowDown01, Loader2 } from "lucide-react";
 import { Waypoint } from "react-waypoint";
-import { Player, usePlayerStore } from "./spotify-player";
 import { captureException } from "@sentry/nextjs";
+import { Player, usePlayerStore } from "./user-player-store";
 
 export const SpotifyPlaylist = forwardRef(
   function SpotifyPlaylist(props, playerRef) {

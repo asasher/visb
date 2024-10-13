@@ -13,158 +13,18 @@ import React, {
 import { useDrag, useGesture } from "@use-gesture/react";
 import { nanoid } from "nanoid";
 import { useDebouncedCallback } from "use-debounce";
-import { api, type RouterOutputs } from "~/trpc/react";
+import { api } from "~/trpc/react";
 import { useAnimationFrame } from "~/lib/hooks";
 import { Waveform } from "./waveform";
 import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
-import { HeartCrack, Loader2, Music, Pause, Play, Slice } from "lucide-react";
+import { Loader2, Music, Slice } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { SpotifyPlaylist } from "./spotify-playlist";
 import TapTempoButton from "./tap-tempo-button";
 import { getSession } from "next-auth/react";
 import { captureException, captureMessage } from "@sentry/nextjs";
-import { create } from "zustand";
-import { immer } from "zustand/middleware/immer";
-
-// {
-//   uri: "spotify:track:xxxx", // Spotify URI
-//   id: "xxxx",                // Spotify ID from URI (can be null)
-//   type: "track",             // Content type: can be "track", "episode" or "ad"
-//   media_type: "audio",       // Type of file: can be "audio" or "video"
-//   name: "Song Name",         // Name of content
-//   is_playable: true,         // Flag indicating whether it can be played
-//   album: {
-//     uri: 'spotify:album:xxxx', // Spotify Album URI
-//     name: 'Album Name',
-//     images: [
-//       { url: "https://image/xxxx" }
-//     ]
-//   },
-//   artists: [
-//     { uri: 'spotify:artist:xxxx', name: "Artist Name" }
-//   ]
-// }
-type WebPlaybackTrack = {
-  uri: string;
-  id: string;
-  type: "track" | "episode" | "ad";
-  media_type: "audio" | "video";
-  name: string;
-  is_playable: boolean;
-  album: {
-    uri: string;
-    name: string;
-    images: {
-      url: string;
-    }[];
-  };
-  artists: {
-    uri: string;
-    name: string;
-  }[];
-};
-
-// {
-//   context: {
-//     uri: 'spotify:album:xxx', // The URI of the context (can be null)
-//     metadata: {},             // Additional metadata for the context (can be null)
-//   },
-//   disallows: {                // A simplified set of restriction controls for
-//     pausing: false,           // The current track. By default, these fields
-//     peeking_next: false,      // will either be set to false or undefined, which
-//     peeking_prev: false,      // indicates that the particular operation is
-//     resuming: false,          // allowed. When the field is set to `true`, this
-//     seeking: false,           // means that the operation is not permitted. For
-//     skipping_next: false,     // example, `skipping_next`, `skipping_prev` and
-//     skipping_prev: false      // `seeking` will be set to `true` when playing an
-//                               // ad track.
-//   },
-//   paused: false,  // Whether the current track is paused.
-//   position: 0,    // The position_ms of the current track.
-//   repeat_mode: 0, // The repeat mode. No repeat mode is 0,
-//                   // repeat context is 1 and repeat track is 2.
-//   shuffle: false, // True if shuffled, false otherwise.
-//   track_window: {
-//     current_track: <WebPlaybackTrack>,                              // The track currently on local playback
-//     previous_tracks: [<WebPlaybackTrack>, <WebPlaybackTrack>, ...], // Previously played tracks. Number can vary.
-//     next_tracks: [<WebPlaybackTrack>, <WebPlaybackTrack>, ...]      // Tracks queued next. Number can vary.
-//   }
-// }
-type WebPlaybackState = {
-  context: {
-    uri: string;
-    metadata: Record<string, unknown>;
-  };
-  disallows: {
-    pausing: boolean;
-    peeking_next: boolean;
-    peeking_prev: boolean;
-    resuming: boolean;
-    seeking: boolean;
-    skipping_next: boolean;
-    skipping_prev: boolean;
-  };
-  paused: boolean;
-  position: number;
-  duration: number;
-  repeat_mode: number;
-  shuffle: boolean;
-  track_window: {
-    current_track: WebPlaybackTrack;
-    previous_tracks: WebPlaybackTrack[];
-    next_tracks: WebPlaybackTrack[];
-  };
-};
-
-type PlayerStateChangedListener = (
-  event: "player_state_changed",
-  cb: (data: WebPlaybackState) => void,
-) => void;
-type ReadyNotReadyListener = (
-  event: "ready" | "not_ready",
-  cb: (data: { device_id: string }) => void,
-) => void;
-type PlaybackErrorListener = (
-  event:
-    | "playback_error"
-    | "authentication_error"
-    | "initialization_error"
-    | "account_error",
-  cb: (data: { message: string }) => void,
-) => void;
-
-type PlayerProps = {
-  name: string;
-  getOAuthToken: (cb: (token: string) => void) => void;
-  volume: number;
-};
-export interface Player {
-  nextTrack(): unknown;
-  previousTrack(): unknown;
-  activateElement(): Promise<void>;
-  setName(arg0: string): unknown;
-  togglePlay(): Promise<void>;
-  resume(): Promise<void>;
-  pause(): Promise<void>;
-  seek(position: number): Promise<void>;
-  getCurrentState(): Promise<WebPlaybackState>;
-  connect: () => Promise<boolean>;
-  disconnect: () => Promise<boolean>;
-  addListener: ReadyNotReadyListener & PlayerStateChangedListener;
-  on: PlaybackErrorListener;
-}
-type PlayerConstructable = new (args: PlayerProps) => Player;
-type Spotify = {
-  Player: PlayerConstructable;
-};
-
-declare global {
-  interface Window {
-    onSpotifyWebPlaybackSDKReady: () => void;
-    Spotify: Spotify;
-  }
-}
+import { Player, usePlayerStore } from "./user-player-store";
 
 type Slice = {
   id: string;
@@ -172,53 +32,6 @@ type Slice = {
   endPosition: number;
   shouldPlay: boolean;
 };
-
-type PlayerState = {
-  paused: boolean;
-  duration: number;
-  position: number;
-  track: WebPlaybackTrack | null;
-  prevTrack?: WebPlaybackTrack | null;
-  nextTrack?: WebPlaybackTrack | null;
-  deviceId: string | null;
-};
-
-type State = {
-  player: PlayerState;
-};
-
-type Actions = {
-  setDeviceId: (deviceId: string | null) => void;
-  onStateChange: (
-    state: Omit<PlayerState, "active" | "deviceId" | "needsRefresh">,
-  ) => void;
-  setPosition: (position: number) => void;
-};
-
-export const usePlayerStore = create<State & Actions>()((set) => ({
-  player: {
-    active: false,
-    paused: true,
-    duration: 0,
-    position: 0,
-    track: null,
-    prevTrack: null,
-    nextTrack: null,
-    deviceId: null,
-  },
-  setPosition: (position) =>
-    set((state) => ({ ...state, player: { ...state.player, position } })),
-  setDeviceId: (deviceId) =>
-    set((state) => ({ ...state, player: { ...state.player, deviceId } })),
-  onStateChange: (changedState) =>
-    set((state) => ({
-      ...state,
-      player: {
-        ...state.player,
-        ...changedState,
-      },
-    })),
-}));
 
 function PlayerContainer({ children }: PropsWithChildren) {
   return (
@@ -265,20 +78,6 @@ function NothingPlayingAlert() {
   );
 }
 
-function NeedsRefreshAlert() {
-  return (
-    <Alert className="rounded-none">
-      <HeartCrack className="h-4 w-4" />
-      <AlertTitle>{"Something went wrong."}</AlertTitle>
-      <AlertDescription>
-        {
-          "It seems something is broken and we can't fix it, please refresh the page."
-        }
-      </AlertDescription>
-    </Alert>
-  );
-}
-
 export function SpotifyPlayer() {
   const playerRef = useRef<Player | null>(null);
 
@@ -297,11 +96,6 @@ export function SpotifyPlayer() {
   });
 
   const utils = api.useUtils();
-
-  // Also using trpc to hold the state of the track analysis
-  const { data: trackAnalysis } = api.spotify.analysis.useQuery(track?.id, {
-    enabled: !!track,
-  });
 
   // We're essentially using trpc to hold the state of slices so
   // no need to manage it with zustrand
@@ -338,8 +132,8 @@ export function SpotifyPlayer() {
     });
   };
 
-  // TODO: This state can potentially be moved to zustand
-  const [isSlicing, setIsSlicing] = useState(false);
+  const isSlicing = usePlayerStore((state) => state.slices.isSlicing);
+  const setIsSlicing = usePlayerStore((state) => state.setIsSlicing);
 
   // Handle whether or not we should play the current slice
   useEffect(() => {
@@ -454,13 +248,8 @@ export function SpotifyPlayer() {
           <div className="relative col-span-full h-20 overflow-hidden">
             <TrackProgress
               ref={playerRef}
-              isSlicing={isSlicing}
               slices={slices ?? []}
-              onSlicingStart={() => setIsSlicing(true)}
-              onSlicingEnd={() => setIsSlicing(false)}
-              onSlicesChange={(changedSlices: Slice[]) => {
-                setSlices(changedSlices);
-              }}
+              onSlicesChange={setSlices}
             />
           </div>
           <TrackCover className="col-span-2 h-24" />
@@ -482,11 +271,7 @@ export function SpotifyPlayer() {
                     <Slice className="h-4 w-4" />
                   )}
                 </Button>
-                <TapTempoButton
-                  className="px-4 py-1 text-white"
-                  spotifyTrackId={track.id}
-                  playbackState={{ position, duration }}
-                />
+                <TapTempoButton className="px-4 py-1 text-white" />
               </div>
             </div>
             <TrackInfo className="px-4 pb-2" />
@@ -667,24 +452,11 @@ function TrackCover({ className }: TrackCoverProps) {
 
 type TrackProgressProps = {
   className?: string;
-  isSlicing: boolean;
   slices: Slice[];
   onSlicesChange: (slices: Slice[]) => void;
-  onSlicingStart: () => void;
-  onSlicingEnd: () => void;
 };
 const TrackProgress = forwardRef<Player, TrackProgressProps>(
-  function TrackProgress(
-    {
-      className,
-      isSlicing = false,
-      slices,
-      onSlicesChange,
-      onSlicingStart,
-      onSlicingEnd,
-    },
-    ref,
-  ) {
+  function TrackProgress({ className, slices, onSlicesChange }, ref) {
     const divRef = useRef<HTMLDivElement>(null);
 
     const track = usePlayerStore((state) => state.player.track);
@@ -695,6 +467,11 @@ const TrackProgress = forwardRef<Player, TrackProgressProps>(
     });
 
     const player = (ref && "current" in ref ? ref.current : null) as Player;
+
+    const isSlicing = usePlayerStore((state) => state.slices.isSlicing);
+    const setIsSlicing = usePlayerStore((state) => state.setIsSlicing);
+    const onSlicingStart = () => setIsSlicing(true);
+    const onSlicingEnd = () => setIsSlicing(false);
 
     const [cursorPosition, setCursorPosition] = useState(0);
     const [draftSliceAnchorPosition, setDraftSliceAnchorPosition] = useState<
@@ -851,15 +628,19 @@ function TrackInfo({ className }: TrackInfoProps) {
     <div className={cn("text-xs text-white", className)}>
       <p className="mb-1 text-base">{track?.name}</p>
 
-      <p className="me-5 inline-flex items-center text-xs">
+      <p className="me-5 inline-flex items-center font-mono text-xs">
         {Math.round(position / 1000)}/{Math.round(duration / 1000)}
       </p>
       {trackAnalysis && (
         <>
-          <p className="me-2 inline-flex items-center text-xs">
-            {Math.floor(trackAnalysis.tempo)} BPM
+          <p className="me-2 inline-flex items-center font-mono text-xs">
+            {Math.floor(trackAnalysis.tempo)}{" "}
+            {trackAnalysis.userTapTempo
+              ? `(${trackAnalysis.userTapTempo})`
+              : ""}{" "}
+            BPM
           </p>
-          <p className="inline-flex items-center text-xs">
+          <p className="inline-flex items-center font-mono text-xs">
             {Math.floor(trackAnalysis.time_signature)}/4
           </p>
         </>

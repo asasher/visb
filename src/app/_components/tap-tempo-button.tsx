@@ -4,6 +4,7 @@ import { useDebouncedCallback } from "use-debounce";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { usePlayerStore } from "./user-player-store";
 
 function getFirstBeatOffset(
   positionOfKnownBeat: number,
@@ -17,22 +18,17 @@ function getFirstBeatOffset(
 
 type TapTempoButtonProps = {
   className?: string;
-  spotifyTrackId: string;
-  playbackState: {
-    position: number;
-    duration: number;
-  };
 };
-const TapTempoButton = ({
-  className,
-  spotifyTrackId,
-  playbackState,
-}: TapTempoButtonProps) => {
+const TapTempoButton = ({ className }: TapTempoButtonProps) => {
   const [lastTap, setLastTap] = useState<number | null>(null);
   const [bpm, setBpm] = useState<number | null>(null);
   const [tapCount, setTapCount] = useState<number>(0);
   const [avgInterval, setAvgInterval] = useState<number>(0);
   const pressTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const position = usePlayerStore((state) => state.player.position);
+  const track = usePlayerStore((state) => state.player.track);
+  const spotifyTrackId = track?.id;
 
   const utils = api.useUtils();
   const { mutate: setTrackTempo, isPending: isSavingTapTempo } =
@@ -42,8 +38,9 @@ const TapTempoButton = ({
         setBpm(null);
       },
     });
-
   const setTrackTempoDebounced = useDebouncedCallback(setTrackTempo, 3000);
+
+  if (!spotifyTrackId) return null;
 
   const handleTap = () => {
     const now = Date.now();
@@ -61,7 +58,7 @@ const TapTempoButton = ({
         (avgInterval * tapCount + interval) / (tapCount + 1);
       setAvgInterval(newAvgInterval);
       const newBpm = 60000 / newAvgInterval; // Calculate BPM based on average interval
-      const beatOffset = getFirstBeatOffset(playbackState.position, newBpm);
+      const beatOffset = getFirstBeatOffset(position, newBpm);
       setBpm(newBpm); // Calculate BPM based on average interval
       setTrackTempoDebounced({
         spotifyTrackId,
