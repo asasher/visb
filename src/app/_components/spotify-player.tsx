@@ -23,6 +23,7 @@ import TapTempoButton from "./tap-tempo-button";
 import { getSession } from "next-auth/react";
 import { captureException, captureMessage } from "@sentry/nextjs";
 import { create } from "zustand";
+import { immer } from "zustand/middleware/immer";
 
 // {
 //   uri: "spotify:track:xxxx", // Spotify URI
@@ -190,8 +191,8 @@ type PlayerActions = {
   setPosition: (position: number) => void;
 };
 
-export const usePlayerState = create<LocalPlayerState & PlayerActions>(
-  (set) => ({
+export const usePlayerState = create<LocalPlayerState & PlayerActions>()(
+  immer((set) => ({
     active: false,
     paused: true,
     duration: 0,
@@ -208,7 +209,7 @@ export const usePlayerState = create<LocalPlayerState & PlayerActions>(
         ...state,
         ...changedState,
       })),
-  }),
+  })),
 );
 
 function PlayerContainer({ children }: PropsWithChildren) {
