@@ -492,13 +492,7 @@ export function SpotifyPlayer() {
                 />
               </div>
             </div>
-            <TrackInfo
-              className="px-4 pb-2"
-              track={track}
-              position={position}
-              duration={duration}
-              trackAnalysis={trackAnalysis}
-            />
+            <TrackInfo className="px-4 pb-2" />
           </div>
         </div>
       )}
