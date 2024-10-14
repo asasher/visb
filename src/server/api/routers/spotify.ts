@@ -80,14 +80,22 @@ export const spotifyRouter = createTRPCRouter({
         await sdk.player.transferPlayback([input.deviceId], true);
       }
 
+      // If trackUri is set then use that other wise play the first song
+      let trackPosition = input.trackUri ? undefined : 0;
+
+      // If input has track position then prefer that over the trackUri
+      if (input.trackPosition) {
+        trackPosition = input.trackPosition;
+      }
+
       // Some tracks only play when I send position, there is some weird shit happening
       // maybe it's due to the relinking stuff Spotify does
       await sdk.player.startResumePlayback(
         input.deviceId,
         input.playlistUri,
         undefined,
-        input.trackPosition
-          ? { position: input.trackPosition }
+        trackPosition
+          ? { position: trackPosition }
           : input.trackUri
             ? { uri: input.trackUri }
             : undefined,
