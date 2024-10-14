@@ -8,7 +8,7 @@ import { forwardRef, Fragment, useCallback, useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { ArrowDown01, Loader2 } from "lucide-react";
 import { Waypoint } from "react-waypoint";
-import { Player, usePlayerStore, WebPlaybackTrack } from "./user-player-store";
+import { Player, usePlayerStore } from "./user-player-store";
 
 export const SpotifyPlaylist = forwardRef<Player, {}>(
   function SpotifyPlaylist(props, playerRef) {

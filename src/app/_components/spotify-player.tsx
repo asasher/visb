@@ -91,7 +91,7 @@ export function SpotifyPlayer() {
   const onStateChange = usePlayerStore((state) => state.onStateChange);
 
   useAnimationFrame((deltaTime) => {
-    if (paused) return;
+    if (paused || !deviceId || !track) return;
     setPosition(Math.min(position + deltaTime, duration));
   });
 
