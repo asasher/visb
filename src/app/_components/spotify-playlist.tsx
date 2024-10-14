@@ -8,8 +8,7 @@ import { forwardRef, Fragment, useCallback, useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { ArrowDown01, Loader2 } from "lucide-react";
 import { Waypoint } from "react-waypoint";
-import { captureException } from "@sentry/nextjs";
-import { Player, usePlayerStore } from "./user-player-store";
+import { Player, usePlayerStore, WebPlaybackTrack } from "./user-player-store";
 
 export const SpotifyPlaylist = forwardRef<Player, {}>(
   function SpotifyPlaylist(props, playerRef) {
@@ -72,18 +71,11 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
     const setDeviceId = usePlayerStore((state) => state.setDeviceId);
     const deviceId = usePlayerStore((state) => state.player.deviceId);
 
-    const resetPlayerState = usePlayerStore((state) => state.resetPlayerState);
-
     const reconnect = useCallback(
       async (player: Player) => {
         setDeviceId(null);
 
         const state = await player.getCurrentState();
-        console.log(
-          "Context",
-          state?.context.uri,
-          state?.track_window.current_track,
-        );
 
         console.log("Pausing playback");
         await player.pause();
@@ -105,6 +97,9 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
     const requestedTrackUri = usePlayerStore(
       (state) => state.playbackRequest.trackUri,
     );
+    const requestedTrackPosition = usePlayerStore(
+      (state) => state.playbackRequest.trackPosition,
+    );
     const setRequestedPlaylist = usePlayerStore(
       (state) => state.setRequestedPlaylist,
     );
@@ -114,12 +109,28 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
 
     const restoreState = useCallback(
       async (deviceId: string) => {
-        if (requestedPlaylistUri && requestedTrackUri) {
+        console.log(
+          "Restoring state",
+          requestedPlaylistUri,
+          requestedTrackUri,
+          requestedTrackPosition,
+        );
+        if (requestedPlaylistUri) {
+          const playlistId = requestedPlaylistUri.split(":")[2];
+          if (playlistId) {
+            setActivePlaylistId(playlistId);
+          }
+        }
+        if (
+          requestedPlaylistUri &&
+          (requestedTrackPosition || requestedTrackUri)
+        ) {
           console.log("Playing the track");
           playOnDevice({
             deviceId,
             playlistUri: requestedPlaylistUri,
             trackUri: requestedTrackUri,
+            trackPosition: requestedTrackPosition,
           });
         } else if (requestedPlaylistUri) {
           console.log("No track uri, just playing the playlist");
@@ -128,14 +139,8 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
             playlistUri: requestedPlaylistUri,
           });
         }
-        if (requestedPlaylistUri) {
-          const playlistId = requestedPlaylistUri.split(":")[2];
-          if (playlistId) {
-            setActivePlaylistId(playlistId);
-          }
-        }
       },
-      [requestedPlaylistUri, requestedTrackUri],
+      [requestedPlaylistUri, requestedTrackUri, requestedTrackPosition],
     );
 
     useEffect(() => {
@@ -143,6 +148,49 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
       if (!deviceId) return;
       void restoreState(deviceId);
     }, [deviceId]);
+
+    const onPlaylistClick = async (playlist: { id: string; uri: string }) => {
+      setActivePlaylistId(playlist.id);
+
+      if (deviceId) {
+        setRequestedPlaylist(playlist.uri);
+        playOnDevice({
+          deviceId,
+          playlistUri: playlist.uri,
+        });
+      }
+
+      if (playerRef && "current" in playerRef && playerRef.current) {
+        const player = playerRef.current;
+        await player.activateElement();
+        await player.resume();
+      }
+    };
+
+    const onTrackClick = useCallback(
+      async (trackUri: string) => {
+        if (!deviceId || !activePlaylist?.uri || !tracks) {
+          return;
+        }
+
+        const trackPosition = tracks.pages
+          .flatMap((x) => x.items)
+          .findIndex((x) => x.uri === trackUri);
+        setRequestedTrack(activePlaylist.uri, trackUri, trackPosition);
+        playOnDevice({
+          playlistUri: activePlaylist.uri,
+          trackUri,
+          trackPosition,
+          deviceId,
+        });
+        if (playerRef && "current" in playerRef && playerRef.current) {
+          const player = playerRef.current;
+          await player.activateElement();
+          await player.resume();
+        }
+      },
+      [activePlaylist, deviceId, playOnDevice, tracks],
+    );
 
     const isActionsDisabled =
       !deviceId ||
@@ -163,7 +211,7 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
             }
           }}
         >
-          {"hit me if shit's broken"}
+          {"hit me to break shit or it's already broken"}
         </Button> */}
         {activePlaylist && (
           <div className="relative mx-4 flex min-h-10 items-start justify-between overflow-hidden bg-green-500 p-0 text-left text-white">
@@ -206,22 +254,7 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
                           "relative block h-fit w-full rounded-none border-none bg-slate-100 p-0 text-left text-black shadow-none hover:bg-slate-200",
                         )}
                         onClick={() => {
-                          setActivePlaylistId(playlist.id);
-                          if (
-                            playerRef &&
-                            "current" in playerRef &&
-                            playerRef.current
-                          ) {
-                            const player = playerRef.current;
-                            void player.activateElement();
-                          }
-                          if (deviceId) {
-                            setRequestedPlaylist(playlist.uri);
-                            void playOnDevice({
-                              deviceId,
-                              playlistUri: playlist.uri,
-                            });
-                          }
+                          void onPlaylistClick(playlist);
                         }}
                         disabled={isActionsDisabled}
                         key={playlist.id}
@@ -259,28 +292,8 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
                         "relative block h-fit w-full rounded-none border-none bg-slate-100 p-0 text-left text-black shadow-none hover:bg-slate-200",
                       )}
                       onClick={() => {
-                        if (!deviceId || !activePlaylist?.uri || !track.uri) {
-                          return;
-                        }
-
-                        setRequestedPlaylist(activePlaylist.uri);
-                        setRequestedTrack(track.uri);
-                        playOnDevice({
-                          playlistUri: activePlaylist.uri,
-                          trackUri: track.uri,
-                          trackPosition: tracks.pages
-                            .flatMap((x) => x.items)
-                            .findIndex((x) => x.uri === track.uri),
-                          deviceId,
-                        });
-                        if (
-                          playerRef &&
-                          "current" in playerRef &&
-                          playerRef.current
-                        ) {
-                          const player = playerRef.current;
-                          void player.activateElement();
-                        }
+                        if (!track.uri) return;
+                        void onTrackClick(track.uri);
                       }}
                       disabled={isActionsDisabled || track.isRestricted}
                       key={track.id}

@@ -157,8 +157,9 @@ type State = {
   // Holds the last request made to the player. We'll use this to
   // restore state in case player is disconnected
   playbackRequest: {
-    playlistUri: string | null;
-    trackUri: string | null;
+    playlistUri?: string;
+    trackUri?: string;
+    trackPosition?: number;
   };
 };
 
@@ -167,11 +168,14 @@ type Actions = {
   onStateChange: (
     state: Omit<PlayerState, "active" | "deviceId" | "needsRefresh">,
   ) => void;
-  resetPlayerState: () => void;
   setPosition: (position: number) => void;
   setIsSlicing: (isSlicing: boolean) => void;
+  setRequestedTrack: (
+    playlistUri: string,
+    trackUri?: string,
+    trackPostion?: number,
+  ) => void;
   setRequestedPlaylist: (playlistUri: string) => void;
-  setRequestedTrack: (trackUri: string) => void;
 };
 
 export const usePlayerStore = create<State & Actions>()((set) => ({
@@ -189,20 +193,20 @@ export const usePlayerStore = create<State & Actions>()((set) => ({
     isSlicing: false,
   },
   playbackRequest: {
-    playlistUri: null,
-    trackUri: null,
+    playlistUri: undefined,
+    trackUri: undefined,
+    trackPosition: undefined,
   },
   setIsSlicing: (isSlicing: boolean) =>
     set((state) => ({ ...state, slices: { ...state.slices, isSlicing } })),
   setPosition: (position) =>
     set((state) => ({ ...state, player: { ...state.player, position } })),
   setDeviceId: (deviceId) =>
-    set((state) => ({ ...state, player: { ...state.player, deviceId } })),
-  resetPlayerState: () =>
     set((state) => ({
       ...state,
       player: {
         ...state.player,
+        deviceId,
         prevTrack: null,
         nextTrack: null,
         track: null,
@@ -219,20 +223,32 @@ export const usePlayerStore = create<State & Actions>()((set) => ({
         ...changedState,
       },
     })),
+  setRequestedTrack: (
+    playlistUri: string,
+    trackUri?: string,
+    trackPosition?: number,
+  ) =>
+    set((state) => {
+      return {
+        ...state,
+        playbackRequest: {
+          ...state.playbackRequest,
+          playlistUri,
+          trackUri,
+          trackPosition,
+        },
+      };
+    }),
   setRequestedPlaylist: (playlistUri: string) =>
-    set((state) => ({
-      ...state,
-      request: {
-        ...state.playbackRequest,
-        playlistUri,
-      },
-    })),
-  setRequestedTrack: (trackUri: string) =>
-    set((state) => ({
-      ...state,
-      request: {
-        ...state.playbackRequest,
-        trackUri,
-      },
-    })),
+    set((state) => {
+      return {
+        ...state,
+        playbackRequest: {
+          ...state.playbackRequest,
+          playlistUri,
+          trackUri: undefined,
+          trackPosition: undefined,
+        },
+      };
+    }),
 }));
