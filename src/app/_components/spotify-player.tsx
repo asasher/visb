@@ -47,7 +47,7 @@ function PlayerNotReadyAlert() {
       <Loader2 className="h-4 w-4 animate-spin" />
       <AlertTitle>{"Connecting to Spotify"}</AlertTitle>
       <AlertDescription>
-        Hold your headphones while we connect to Spotify
+        Hold on to your headphones while we connect to Spotify
       </AlertDescription>
     </Alert>
   );

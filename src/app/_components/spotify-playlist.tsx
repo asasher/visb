@@ -38,7 +38,7 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
 
     const { mutate: playOnDevice, isPending: isPlayOnDeviceLoading } =
       api.spotify.playOnDevice.useMutation({
-        async onError(err, ctx) {
+        async onError(err) {
           incrementErrorCount();
           console.error(
             "Got an error while trying to play on device. Attempting to reconnect.",
@@ -159,7 +159,8 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
       console.log("Device Id changed", deviceId);
       if (!deviceId) return;
       void restoreState(deviceId);
-    }, [deviceId, restoreState]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [deviceId]); // We only want to run this when deviceId changes
 
     const onPlaylistClick = async (playlist: { id: string; uri: string }) => {
       setActivePlaylistId(playlist.id);
