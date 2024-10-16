@@ -53,7 +53,7 @@ function PlayerNotReadyAlert() {
 function ShitsBrokenAlert() {
   return (
     <Alert className="rounded-none">
-      <BotOff className="h-4 w-4 animate-spin" />
+      <BotOff className="h-4 w-4" />
       <AlertTitle>{"Yep It's Broken"}</AlertTitle>
       <AlertDescription>{"And we can't fix it, hit refresh."}</AlertDescription>
     </Alert>
@@ -247,7 +247,7 @@ export function SpotifyPlayer() {
     );
   }
 
-  if (errorCount > 3) {
+  if (errorCount > 5) {
     return (
       <PlayerContainer>
         <ShitsBrokenAlert />
