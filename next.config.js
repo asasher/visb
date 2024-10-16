@@ -31,6 +31,10 @@ const config = {
         protocol: "https",
         hostname: "image-cdn-fa.spotifycdn.com",
       },
+      {
+        protocol: "https",
+        hostname: "picsum.photos"
+      }
     ],
   },
 };

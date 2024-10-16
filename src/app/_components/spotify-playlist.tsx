@@ -234,7 +234,7 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
           {"hit me to break shit or it's already broken"}
         </Button> */}
         {activePlaylist && (
-          <div className="relative mx-4 flex min-h-10 items-start justify-between overflow-hidden bg-green-500 p-0 text-left text-white">
+          <div className="relative mx-4 flex items-start bg-green-500 p-0 text-left text-white">
             <PlaylistCard
               playlist={activePlaylist}
               className="pointer-events-none"
@@ -271,7 +271,7 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
                     {page.items.map((playlist) => (
                       <Button
                         className={cn(
-                          "relative block h-fit w-full rounded-none border-none bg-slate-100 p-0 text-left text-black shadow-none hover:bg-slate-200",
+                          "relative block h-fit w-full rounded-none border-none p-0 text-left text-black shadow-none odd:bg-slate-50 even:bg-slate-100 hover:bg-slate-200",
                         )}
                         onClick={() => {
                           void onPlaylistClick(playlist);
@@ -309,7 +309,7 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
                   {page.items.map((track) => (
                     <Button
                       className={cn(
-                        "relative block h-fit w-full rounded-none border-none bg-slate-100 p-0 text-left text-black shadow-none hover:bg-slate-200",
+                        "relative block h-fit w-full rounded-none border-none p-0 text-left text-black shadow-none odd:bg-slate-50 even:bg-slate-100 hover:bg-slate-200",
                       )}
                       onClick={() => {
                         if (!track.uri) return;
@@ -318,10 +318,7 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
                       disabled={isActionsDisabled || track.isRestricted}
                       key={track.id}
                     >
-                      <TrackCard
-                        track={track}
-                        className="cursor-pointer odd:bg-slate-100 even:bg-slate-50 hover:bg-slate-200"
-                      />
+                      <TrackCard track={track} className="cursor-pointer" />
                       <p className="pointer-events-none absolute right-4 top-3 text-xs">
                         Play
                       </p>
@@ -382,20 +379,16 @@ function PlaylistCard({ playlist, className, onClick }: PlaylistCardProps) {
     <div
       key={playlist.id}
       onClick={onClick}
-      className={cn("flex w-full items-center justify-start gap-2", className)}
+      className={cn("flex w-full items-start justify-start gap-2", className)}
     >
       <CoverImage
-        className="h-10 w-10"
+        className="h-20 w-16"
         imageUrl={playlist.imageUrl}
         alt={playlist.name}
       />
-      <div>
-        <p className="inline-flex max-w-48 overflow-hidden text-sm md:max-w-none">
-          {playlist.name}
-        </p>
-        <p className="ms-4 inline-flex text-xs">
-          {playlist.totalTracks} TRACKS
-        </p>
+      <div className="max-w-48 text-wrap py-2 md:max-w-none">
+        <p className="text-sm md:max-w-none">{playlist.name}</p>
+        <p className="mt-2 font-mono text-xs">{playlist.totalTracks} TRACKS</p>
       </div>
     </div>
   );
@@ -418,29 +411,22 @@ function TrackCard({ track, className, onClick }: TrackCardProps) {
   return (
     <div
       key={track.id}
-      className={cn("flex w-full items-center justify-start gap-2", className)}
+      className={cn("flex w-full items-start justify-start gap-2", className)}
       onClick={onClick}
     >
       <CoverImage
-        className="h-10 w-10"
+        className="h-20 w-16"
         imageUrl={track.imageUrl}
         alt={track.name}
       />
-      <div className="w-8/12 overflow-x-scroll">
-        <p
-          className={cn(
-            "inline-flex max-w-48 overflow-hidden text-sm md:max-w-none",
-            track.isRestricted ? "line-through" : "",
-          )}
-        >
+      <div className="max-w-48 text-wrap py-2 md:max-w-none">
+        <p className={cn("text-sm", track.isRestricted ? "line-through" : "")}>
           {track.name}
         </p>
-        <p className="ms-4 inline-flex items-center text-xs">
-          {Math.round(track.userTapTempo ?? track.tempo ?? 0)} BPM
-        </p>
-        <p className="ms-2 inline-flex items-center text-xs">
-          {track.time_signature}/4
-        </p>
+        <div className="mt-2 flex gap-2 font-mono text-xs text-slate-700">
+          <p>{Math.round(track.userTapTempo ?? track.tempo ?? 0)} BPM</p>
+          <p>{track.time_signature}/4</p>
+        </div>
       </div>
     </div>
   );

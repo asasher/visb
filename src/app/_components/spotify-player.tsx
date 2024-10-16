@@ -6,8 +6,7 @@ import React, {
   useEffect,
   useRef,
   Fragment,
-  PropsWithChildren,
-  use,
+  type PropsWithChildren,
   forwardRef,
 } from "react";
 import { useDrag, useGesture } from "@use-gesture/react";
@@ -24,7 +23,7 @@ import { SpotifyPlaylist } from "./spotify-playlist";
 import TapTempoButton from "./tap-tempo-button";
 import { getSession } from "next-auth/react";
 import { captureException, captureMessage } from "@sentry/nextjs";
-import { Player, usePlayerStore } from "./user-player-store";
+import { type Player, usePlayerStore } from "./user-player-store";
 
 type Slice = {
   id: string;
@@ -35,9 +34,7 @@ type Slice = {
 
 function PlayerContainer({ children }: PropsWithChildren) {
   return (
-    <div className="flex h-full w-full flex-col justify-end object-contain">
-      {children}
-    </div>
+    <div className="flex h-full w-full flex-col justify-end">{children}</div>
   );
 }
 
