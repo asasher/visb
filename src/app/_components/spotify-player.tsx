@@ -69,7 +69,7 @@ function DeviceNotReadyAlert() {
       <Loader2 className="h-4 w-4 animate-spin" />
       <AlertTitle>{"Just a sec"}</AlertTitle>
       <AlertDescription>
-        {"We're getting this device ready for playback"}
+        {"The device fell asleep, trying to wake up and reconnect to Spotify."}
       </AlertDescription>
     </Alert>
   );
