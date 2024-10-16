@@ -111,8 +111,6 @@ export const getSpotifyTokenOrRefresh = async (userId: string) => {
     if (result.length > 0) {
       spotifyAccount = result[0];
     }
-  } else {
-    captureException(new Error("No refresh token found"));
   }
   return spotifyAccount;
 };
