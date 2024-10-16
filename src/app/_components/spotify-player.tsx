@@ -18,7 +18,7 @@ import { useAnimationFrame } from "~/lib/hooks";
 import { Waveform } from "./waveform";
 import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
-import { Loader2, Music, Slice } from "lucide-react";
+import { BotOff, Loader2, Music, Slice } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { SpotifyPlaylist } from "./spotify-playlist";
 import TapTempoButton from "./tap-tempo-button";
@@ -49,6 +49,16 @@ function PlayerNotReadyAlert() {
       <AlertDescription>
         Hold your headphones while we connect to Spotify
       </AlertDescription>
+    </Alert>
+  );
+}
+
+function ShitsBrokenAlert() {
+  return (
+    <Alert className="rounded-none">
+      <BotOff className="h-4 w-4 animate-spin" />
+      <AlertTitle>{"Yep It's Broken"}</AlertTitle>
+      <AlertDescription>{"And we can't fix it, hit refresh."}</AlertDescription>
     </Alert>
   );
 }
@@ -228,12 +238,22 @@ export function SpotifyPlayer() {
 
       void player.connect();
     };
-  }, []);
+  }, [onStateChange, setDeviceId]);
+
+  const errorCount = usePlayerStore((state) => state.errorHandling.errorCount);
 
   if (!playerRef.current) {
     return (
       <PlayerContainer>
         <PlayerNotReadyAlert />
+      </PlayerContainer>
+    );
+  }
+
+  if (errorCount > 3) {
+    return (
+      <PlayerContainer>
+        <ShitsBrokenAlert />
       </PlayerContainer>
     );
   }
