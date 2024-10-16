@@ -6,7 +6,7 @@ import { api } from "~/trpc/react";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { forwardRef, Fragment, useCallback, useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
-import { ArrowDown01, Loader2 } from "lucide-react";
+import { ArrowDown01, Disc3, Loader2, Trash } from "lucide-react";
 import { Waypoint } from "react-waypoint";
 import { type Player, usePlayerStore } from "./user-player-store";
 
@@ -53,6 +53,63 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
         },
         onSuccess() {
           resetErrorCount();
+        },
+      });
+
+    const apiUtils = api.useUtils();
+    const { mutate: removeFromPlaylist, isPending: isRemovingFromPlaylist } =
+      api.spotify.removeTrackFromPlaylist.useMutation({
+        async onMutate({ spotifyPlaylistId, spotifyTrackUri }) {
+          await apiUtils.spotify.getPlaylistTracks.cancel();
+          const prevData = apiUtils.spotify.getPlaylistTracks.getInfiniteData({
+            playlistId: spotifyPlaylistId,
+          });
+
+          apiUtils.spotify.getPlaylistTracks.setInfiniteData(
+            { playlistId: spotifyPlaylistId },
+            (data) => {
+              if (!data) {
+                return {
+                  pages: [],
+                  pageParams: [],
+                };
+              }
+
+              return {
+                ...data,
+                pages: data.pages.map((page) => ({
+                  ...page,
+                  items: page.items.filter(
+                    (item) => item.uri !== spotifyTrackUri,
+                  ),
+                })),
+              };
+            },
+          );
+
+          return { prevData };
+        },
+        async onError(error, { spotifyPlaylistId }, ctx) {
+          apiUtils.spotify.getPlaylistTracks.setInfiniteData(
+            {
+              playlistId: spotifyPlaylistId,
+            },
+            (data) => {
+              if (!data) {
+                return {
+                  pages: [],
+                  pageParams: [],
+                };
+              }
+              return ctx?.prevData;
+            },
+          );
+        },
+        async onSettled(data, error, { spotifyPlaylistId }) {
+          await apiUtils.spotify.getPlaylistTracks.invalidate({
+            playlistId: spotifyPlaylistId,
+          });
+          await apiUtils.spotify.playlists.invalidate();
         },
       });
 
@@ -239,6 +296,11 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
               playlist={activePlaylist}
               className="pointer-events-none"
             />
+            {isRemovingFromPlaylist && (
+              <div className="flex items-center justify-center px-2 py-3">
+                <Loader2 className="h-4 w-4 animate-spin" />
+              </div>
+            )}
             <SortPlaylistByTempoButton
               className="px-4 py-1"
               spotifyPlaylistId={activePlaylist.id}
@@ -307,22 +369,36 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
               tracks.pages.map((page, i) => (
                 <Fragment key={i}>
                   {page.items.map((track) => (
-                    <Button
+                    <div
                       className={cn(
-                        "relative block h-fit w-full rounded-none border-none p-0 text-left text-black shadow-none odd:bg-slate-50 even:bg-slate-100 hover:bg-slate-200",
+                        "relative flex h-fit w-full rounded-none border-none p-0 text-left text-black shadow-none odd:bg-slate-50 even:bg-slate-100",
                       )}
-                      onClick={() => {
-                        if (!track.uri) return;
-                        void onTrackClick(track.uri);
-                      }}
-                      disabled={isActionsDisabled || track.isRestricted}
                       key={track.id}
                     >
-                      <TrackCard track={track} className="cursor-pointer" />
-                      <p className="pointer-events-none absolute right-4 top-3 text-xs">
-                        Play
-                      </p>
-                    </Button>
+                      <TrackCard
+                        onClick={() => {
+                          if (!track.uri) return;
+                          void onTrackClick(track.uri);
+                        }}
+                        disabled={isActionsDisabled || track.isRestricted}
+                        track={track}
+                        className="cursor-pointer"
+                      />
+                      <Button
+                        className="px-4 text-xs"
+                        onClick={() => {
+                          if (!activePlaylistId || !track.uri) return;
+                          void removeFromPlaylist({
+                            spotifyPlaylistId: activePlaylistId,
+                            spotifyTrackUri: track.uri,
+                          });
+                        }}
+                        variant={"ghost"}
+                        disabled={isActionsDisabled || track.isRestricted}
+                      >
+                        <Trash className="h-4 w-4 text-slate-500" />
+                      </Button>
+                    </div>
                   ))}
                 </Fragment>
               ))}
@@ -349,18 +425,25 @@ type CoverImageProps = {
   alt?: string;
 };
 function CoverImage({ imageUrl, alt, className }: CoverImageProps) {
-  return (
-    imageUrl && (
+  if (!imageUrl) {
+    return (
       <div className={cn("relative h-full w-full", className)}>
-        <Image
-          sizes="100%"
-          className="object-cover"
-          src={imageUrl}
-          alt={alt ?? ""}
-          fill={true}
-        />
+        <div className="flex h-full w-full items-center justify-center bg-slate-900">
+          <Disc3 className="h-4 w-4 text-white" />
+        </div>
       </div>
-    )
+    );
+  }
+  return (
+    <div className={cn("relative h-full w-full", className)}>
+      <Image
+        sizes="100%"
+        className="object-cover"
+        src={imageUrl}
+        alt={alt ?? ""}
+        fill={true}
+      />
+    </div>
   );
 }
 
@@ -405,13 +488,26 @@ type TrackCardProps = {
     isRestricted?: boolean;
   };
   className?: string;
+  disabled?: boolean;
   onClick?: () => void;
 };
-function TrackCard({ track, className, onClick }: TrackCardProps) {
+function TrackCard({
+  track,
+  className,
+  onClick,
+  disabled = false,
+}: TrackCardProps) {
   return (
     <div
       key={track.id}
-      className={cn("flex w-full items-start justify-start gap-2", className)}
+      className={cn(
+        "flex w-full items-start justify-start gap-2",
+        className,
+        onClick ? "cursor-pointer hover:bg-slate-200" : "",
+        disabled
+          ? "pointer-events-none cursor-auto opacity-50 hover:bg-none"
+          : "",
+      )}
       onClick={onClick}
     >
       <CoverImage

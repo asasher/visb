@@ -261,7 +261,7 @@ export function SpotifyPlayer() {
       {!deviceId && <DeviceNotReadyAlert />}
       {!track && <NothingPlayingAlert />}
       {track && (
-        <div className="grid w-full grid-cols-12 items-end justify-center shadow-lg">
+        <div className="grid w-full grid-cols-12 items-end justify-center bg-slate-900 shadow-lg">
           <div className="relative col-span-full h-20 overflow-hidden">
             <TrackProgress
               ref={playerRef}
@@ -269,7 +269,7 @@ export function SpotifyPlayer() {
               onSlicesChange={setSlices}
             />
           </div>
-          <TrackCover className="col-span-2 h-24" />
+          <TrackCover className="col-span-2 h-28" />
           <div
             className={`relative col-start-3 -col-end-1 flex h-full w-full flex-col justify-between bg-slate-700`}
           >
@@ -454,7 +454,7 @@ function TrackCover({ className }: TrackCoverProps) {
   const track = usePlayerStore((state) => state.player.track);
   return (
     track?.album.images[0]?.url && (
-      <div className={cn("relative h-full w-full", className)}>
+      <div className={cn("relative h-full w-full bg-slate-900", className)}>
         <Image
           sizes="100%"
           className="object-cover"

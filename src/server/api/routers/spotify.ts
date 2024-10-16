@@ -53,6 +53,24 @@ export const spotifyRouter = createTRPCRouter({
         }
       }
     }),
+  removeTrackFromPlaylist: protectedProcedure
+    .input(
+      z.object({
+        spotifyPlaylistId: z.string(),
+        spotifyTrackUri: z.string(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const userId = ctx.session.user.id;
+      const sdk = await getSpotifySdk(userId);
+      await sdk.playlists.removeItemsFromPlaylist(input.spotifyPlaylistId, {
+        tracks: [
+          {
+            uri: input.spotifyTrackUri,
+          },
+        ],
+      });
+    }),
   playOnDevice: protectedProcedure
     .input(
       z.object({
