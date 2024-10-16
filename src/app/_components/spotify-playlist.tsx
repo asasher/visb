@@ -8,7 +8,7 @@ import { forwardRef, Fragment, useCallback, useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { ArrowDown01, Loader2 } from "lucide-react";
 import { Waypoint } from "react-waypoint";
-import { Player, usePlayerStore } from "./user-player-store";
+import { type Player, usePlayerStore } from "./user-player-store";
 
 export const SpotifyPlaylist = forwardRef<Player, {}>(
   function SpotifyPlaylist(props, playerRef) {
@@ -31,9 +31,15 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
       null,
     );
 
+    const incrementErrorCount = usePlayerStore(
+      (state) => state.incrementErrorCount,
+    );
+    const resetErrorCount = usePlayerStore((state) => state.resetErrorCount);
+
     const { mutate: playOnDevice, isPending: isPlayOnDeviceLoading } =
       api.spotify.playOnDevice.useMutation({
         async onError(err, ctx) {
+          incrementErrorCount();
           console.error(
             "Got an error while trying to play on device. Attempting to reconnect.",
             err,
@@ -44,6 +50,9 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
           }
           const player = playerRef.current;
           await reconnect(player);
+        },
+        onSuccess() {
+          resetErrorCount();
         },
       });
 
@@ -75,8 +84,6 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
       async (player: Player) => {
         setDeviceId(null);
 
-        const state = await player.getCurrentState();
-
         console.log("Pausing playback");
         await player.pause();
 
@@ -88,7 +95,7 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
           void player.connect();
         }, 5000);
       },
-      [deviceId, setDeviceId],
+      [setDeviceId],
     );
 
     const requestedPlaylistUri = usePlayerStore(
@@ -140,14 +147,19 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
           });
         }
       },
-      [requestedPlaylistUri, requestedTrackUri, requestedTrackPosition],
+      [
+        requestedPlaylistUri,
+        requestedTrackUri,
+        requestedTrackPosition,
+        playOnDevice,
+      ],
     );
 
     useEffect(() => {
       console.log("Device Id changed", deviceId);
       if (!deviceId) return;
       void restoreState(deviceId);
-    }, [deviceId]);
+    }, [deviceId, restoreState]);
 
     const onPlaylistClick = async (playlist: { id: string; uri: string }) => {
       setActivePlaylistId(playlist.id);
@@ -189,7 +201,14 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
           await player.resume();
         }
       },
-      [activePlaylist, deviceId, playOnDevice, tracks],
+      [
+        activePlaylist,
+        deviceId,
+        playOnDevice,
+        playerRef,
+        setRequestedTrack,
+        tracks,
+      ],
     );
 
     const isActionsDisabled =
@@ -286,7 +305,7 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
             {!!tracks &&
               tracks.pages.map((page, i) => (
                 <Fragment key={i}>
-                  {page.items.map((track, j) => (
+                  {page.items.map((track) => (
                     <Button
                       className={cn(
                         "relative block h-fit w-full rounded-none border-none bg-slate-100 p-0 text-left text-black shadow-none hover:bg-slate-200",

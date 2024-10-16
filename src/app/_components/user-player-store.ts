@@ -161,6 +161,9 @@ type State = {
     trackUri?: string;
     trackPosition?: number;
   };
+  errorHandling: {
+    errorCount: number;
+  };
 };
 
 type Actions = {
@@ -176,6 +179,8 @@ type Actions = {
     trackPostion?: number,
   ) => void;
   setRequestedPlaylist: (playlistUri: string) => void;
+  incrementErrorCount: () => void;
+  resetErrorCount: () => void;
 };
 
 export const usePlayerStore = create<State & Actions>()((set) => ({
@@ -196,6 +201,9 @@ export const usePlayerStore = create<State & Actions>()((set) => ({
     playlistUri: undefined,
     trackUri: undefined,
     trackPosition: undefined,
+  },
+  errorHandling: {
+    errorCount: 0,
   },
   setIsSlicing: (isSlicing: boolean) =>
     set((state) => ({ ...state, slices: { ...state.slices, isSlicing } })),
@@ -251,4 +259,17 @@ export const usePlayerStore = create<State & Actions>()((set) => ({
         },
       };
     }),
+  incrementErrorCount: () =>
+    set((state) => ({
+      ...state,
+      errorHandling: {
+        ...state.errorHandling,
+        errorCount: state.errorHandling.errorCount + 1,
+      },
+    })),
+  resetErrorCount: () =>
+    set((state) => ({
+      ...state,
+      errorHandling: { ...state.errorHandling, errorCount: 0 },
+    })),
 }));
