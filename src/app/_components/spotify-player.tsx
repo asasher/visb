@@ -288,7 +288,10 @@ export function SpotifyPlayer() {
                     <Slice className="h-4 w-4" />
                   )}
                 </Button>
-                <TapTempoButton className="px-4 py-1 text-white" />
+                <TapTempoButton
+                  key={track.id}
+                  className="px-4 py-1 text-white"
+                />
               </div>
             </div>
             <TrackInfo className="px-4 pb-2" />
