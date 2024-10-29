@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useMediaQuery } from "react-responsive";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ScrollArea } from "~/components/ui/scroll-area";
@@ -458,8 +459,10 @@ type PlaylistCardProps = {
   onClick?: () => void;
 };
 function PlaylistCard({ playlist, className, onClick }: PlaylistCardProps) {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+  const isSm = useMediaQuery({ query: "(min-width: 640px)" });
   const textSize = `${playlist.name} ${playlist.totalTracks} TRACKS`.length;
-  const shouldScroll = textSize > 30;
+  const shouldScroll = !isSm && textSize > 30;
   const infoElement = (
     <p
       className={cn(
@@ -487,7 +490,7 @@ function PlaylistCard({ playlist, className, onClick }: PlaylistCardProps) {
         imageUrl={playlist.imageUrl}
         alt={playlist.name}
       />
-      <div className="flex max-w-52 items-start justify-start gap-2 overflow-hidden py-2 md:max-w-none">
+      <div className="flex max-w-52 items-start justify-start gap-2 overflow-hidden py-2 sm:max-w-none">
         {infoElement}
         {shouldScroll && infoElement}
       </div>
@@ -515,10 +518,12 @@ function TrackCard({
   onClick,
   disabled = false,
 }: TrackCardProps) {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+  const isSm = useMediaQuery({ query: "(min-width: 640px)" });
   const bpmText = `${Math.round(track.userTapTempo ?? track.tempo ?? 0)} BPM`;
   const timeSignatureText = `${track.time_signature}/4`;
   const textSize = `${track.name} ${bpmText} ${timeSignatureText}`.length;
-  const shouldScroll = textSize > 30;
+  const shouldScroll = !isSm && textSize > 30;
 
   const infoElement = (
     <p
@@ -551,7 +556,7 @@ function TrackCard({
         imageUrl={track.imageUrl}
         alt={track.name}
       />
-      <div className="flex max-w-52 gap-4 overflow-hidden text-wrap py-2 md:max-w-none">
+      <div className="flex max-w-52 gap-4 overflow-hidden text-wrap py-2 sm:max-w-none">
         {infoElement}
         {shouldScroll && infoElement}
       </div>
