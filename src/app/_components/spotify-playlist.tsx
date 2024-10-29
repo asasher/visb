@@ -458,20 +458,38 @@ type PlaylistCardProps = {
   onClick?: () => void;
 };
 function PlaylistCard({ playlist, className, onClick }: PlaylistCardProps) {
+  const textSize = `${playlist.name} ${playlist.totalTracks} TRACKS`.length;
+  const shouldScroll = textSize > 30;
+  const infoElement = (
+    <p
+      className={cn(
+        "text-nowrap align-baseline text-sm",
+        shouldScroll ? "animate-loop-scroll" : "",
+      )}
+    >
+      <span>{playlist.name}</span>
+      <span className="ms-2 text-xs opacity-75">
+        {playlist.totalTracks} TRACKS
+      </span>
+    </p>
+  );
   return (
     <div
       key={playlist.id}
       onClick={onClick}
-      className={cn("flex w-full items-start justify-start gap-2", className)}
+      className={cn(
+        "relative flex w-full items-start justify-start gap-2",
+        className,
+      )}
     >
       <CoverImage
-        className="h-20 w-16"
+        className="h-10 w-10"
         imageUrl={playlist.imageUrl}
         alt={playlist.name}
       />
-      <div className="max-w-48 text-wrap py-2 md:max-w-none">
-        <p className="text-sm md:max-w-none">{playlist.name}</p>
-        <p className="mt-2 font-mono text-xs">{playlist.totalTracks} TRACKS</p>
+      <div className="flex max-w-52 items-start justify-start gap-2 overflow-hidden py-2 md:max-w-none">
+        {infoElement}
+        {shouldScroll && infoElement}
       </div>
     </div>
   );
@@ -497,6 +515,24 @@ function TrackCard({
   onClick,
   disabled = false,
 }: TrackCardProps) {
+  const bpmText = `${Math.round(track.userTapTempo ?? track.tempo ?? 0)} BPM`;
+  const timeSignatureText = `${track.time_signature}/4`;
+  const textSize = `${track.name} ${bpmText} ${timeSignatureText}`.length;
+  const shouldScroll = textSize > 30;
+
+  const infoElement = (
+    <p
+      className={cn(
+        "text-nowrap text-sm",
+        track.isRestricted ? "line-through" : "",
+        shouldScroll ? "animate-loop-scroll" : "",
+      )}
+    >
+      <span>{track.name}</span>
+      <span className="ms-4 text-xs opacity-75">{bpmText}</span>
+      <span className="ms-2 text-xs opacity-75">{timeSignatureText}</span>
+    </p>
+  );
   return (
     <div
       key={track.id}
@@ -511,18 +547,13 @@ function TrackCard({
       onClick={onClick}
     >
       <CoverImage
-        className="h-20 w-16"
+        className="h-10 w-10"
         imageUrl={track.imageUrl}
         alt={track.name}
       />
-      <div className="max-w-48 text-wrap py-2 md:max-w-none">
-        <p className={cn("text-sm", track.isRestricted ? "line-through" : "")}>
-          {track.name}
-        </p>
-        <div className="mt-2 flex gap-2 font-mono text-xs text-slate-700">
-          <p>{Math.round(track.userTapTempo ?? track.tempo ?? 0)} BPM</p>
-          <p>{track.time_signature}/4</p>
-        </div>
+      <div className="flex max-w-52 gap-4 overflow-hidden text-wrap py-2 md:max-w-none">
+        {infoElement}
+        {shouldScroll && infoElement}
       </div>
     </div>
   );
