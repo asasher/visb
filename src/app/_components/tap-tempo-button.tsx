@@ -178,7 +178,6 @@ const TapTempoButton = ({ className }: TapTempoButtonProps) => {
         e.preventDefault();
         e.stopPropagation();
         startPressTimer();
-        handleTap();
       }}
       onTouchEnd={cancelPressTimer}
     >
