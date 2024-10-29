@@ -166,13 +166,15 @@ const TapTempoButton = ({ className }: TapTempoButtonProps) => {
     <Button
       className={cn(className)}
       variant={"ghost"}
-      onMouseDown={() => {
+      onMouseDown={(e) => {
+        e.preventDefault();
         startPressTimer();
         handleTap();
       }}
       onMouseUp={cancelPressTimer}
       onMouseLeave={cancelPressTimer}
-      onTouchStart={() => {
+      onTouchStart={(e) => {
+        e.preventDefault();
         startPressTimer();
         handleTap();
       }}
