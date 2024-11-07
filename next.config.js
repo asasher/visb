@@ -10,32 +10,33 @@ import { withSentryConfig } from "@sentry/nextjs";
 const config = {
   reactStrictMode: false, // If this is enabled then spotify doesn't work
   images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "i.scdn.co",
-      },
-      {
-        protocol: "https",
-        hostname: "mosaic.scdn.co",
-      },
-      {
-        protocol: "https",
-        hostname: "image-cdn-ak.spotifycdn.com",
-      },
-      {
-        protocol: "https",
-        hostname: "i2o.scdn.co",
-      },
-      {
-        protocol: "https",
-        hostname: "image-cdn-fa.spotifycdn.com",
-      },
-      {
-        protocol: "https",
-        hostname: "picsum.photos"
-      }
-    ],
+    unoptimized: true,
+    // remotePatterns: [
+    //   {
+    //     protocol: "https",
+    //     hostname: "i.scdn.co",
+    //   },
+    //   {
+    //     protocol: "https",
+    //     hostname: "mosaic.scdn.co",
+    //   },
+    //   {
+    //     protocol: "https",
+    //     hostname: "image-cdn-ak.spotifycdn.com",
+    //   },
+    //   {
+    //     protocol: "https",
+    //     hostname: "i2o.scdn.co",
+    //   },
+    //   {
+    //     protocol: "https",
+    //     hostname: "image-cdn-fa.spotifycdn.com",
+    //   },
+    //   {
+    //     protocol: "https",
+    //     hostname: "picsum.photos"
+    //   }
+    // ],
   },
 };
 
