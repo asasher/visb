@@ -84,7 +84,7 @@ export function Waveform({
 
         const x = canvas.width * (beatPosition / duration);
 
-        const y = 0.5 * canvas.height;
+        const y = 0.8 * canvas.height;
 
         ctx.beginPath();
         ctx.moveTo(x, 0);
@@ -94,7 +94,7 @@ export function Waveform({
       }
 
       beatPosition = Math.round(beatOffset ?? 0);
-      let dv = -0.1;
+      let dv = -0.2;
       let v = 0.1;
       for (let i = 0; i < numBeatsBasedOnTempo; i++) {
         beatPosition += durationBetweenBeats;
