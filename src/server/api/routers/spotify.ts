@@ -1,8 +1,7 @@
 import { z } from "zod";
 
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import IntervalTree from "@flatten-js/interval-tree";
-import { chunk, isDefined } from "~/lib/utils";
+import { chunk } from "~/lib/utils";
 import { eq, inArray } from "drizzle-orm";
 import { tracks } from "~/server/db/schema";
 import { getSpotifySdk } from "~/server/lib/spotify";
@@ -24,8 +23,6 @@ export const spotifyRouter = createTRPCRouter({
         spotifyUserProfile.country as Market,
       );
       const trackIds = playlistTracks.items.map((track) => track.track.id);
-      const features = await sdk.tracks.audioFeatures(trackIds);
-      console.log(`Got ${features.length} features`);
       const ourTracks = await ctx.db.query.tracks.findMany({
         where: inArray(tracks.spotifyTrackId, trackIds),
       });
@@ -33,9 +30,7 @@ export const spotifyRouter = createTRPCRouter({
         uri: track.track.uri,
         tempo:
           ourTracks.find((x) => x.spotifyTrackId === track.track.id)
-            ?.userTapTempo ??
-          features.find((feature) => feature?.id === track.track.id)?.tempo ??
-          0,
+            ?.userTapTempo ?? Number.POSITIVE_INFINITY,
       }));
       const sortedTracks = trackTempos.sort((a, b) => a.tempo - b.tempo);
       const sortTracksUris = sortedTracks.map((track) => track.uri);
@@ -152,7 +147,7 @@ export const spotifyRouter = createTRPCRouter({
         cursor,
       );
       const items = playlists.items
-        .filter((playlist) => playlist.owner.id === spotifyUserId)
+        .filter((playlist) => playlist?.owner?.id === spotifyUserId)
         .map((playlist) => ({
           id: playlist.id,
           name: playlist.name,
@@ -182,7 +177,9 @@ export const spotifyRouter = createTRPCRouter({
       const limit = 50;
       const userId = ctx.session.user.id;
       const sdk = await getSpotifySdk(userId);
+      console.log("Getting Spotify User Profile");
       const spotifyUserProfile = await sdk.currentUser.profile();
+      console.log("Getting Playlist Tracks");
       const playlistTracks = await sdk.playlists.getPlaylistItems(
         playlistId,
         spotifyUserProfile.country as Market,
@@ -192,19 +189,21 @@ export const spotifyRouter = createTRPCRouter({
       );
       console.log("Reading Track Ids");
       const trackIds = playlistTracks.items.map((track) => track.track.id);
-      const trackFeatures = await sdk.tracks.audioFeatures(trackIds);
+      console.log("Getting Track Features");
       console.log("Reading Our Tracks");
       const ourTracks = await ctx.db.query.tracks.findMany({
         where: inArray(tracks.spotifyTrackId, trackIds),
       });
+      console.log("Mapping Spotify Tracks");
       const spotifyTracks = playlistTracks.items.map((track) => ({
         id: track.track.id,
         name: track.track.name,
         imageUrl: track.track.album.images[0]?.url,
         duration: track.track.duration_ms,
         isRestricted: !!track.track.restrictions?.reason,
-        ...trackFeatures.find((feature) => feature?.id === track.track.id),
+        uri: track.track.uri,
       }));
+      console.log("Mapping Our Tracks");
       const combinedTracks = spotifyTracks.map((track) => ({
         ...track,
         ...ourTracks.find((ourTrack) => ourTrack.spotifyTrackId === track.id),
@@ -218,56 +217,12 @@ export const spotifyRouter = createTRPCRouter({
     .input(z.string().optional())
     .query(async ({ ctx, input: trackId }) => {
       if (!trackId) return null;
-      const sdk = await getSpotifySdk(ctx.session.user.id);
-      const features = await sdk.tracks.audioFeatures(trackId);
-      const analysis = await sdk.tracks.audioAnalysis(trackId);
-
-      const segmentsTree = new IntervalTree<
-        (typeof analysis.segments)[number]
-      >();
-      analysis.segments.forEach((segment) => {
-        segmentsTree.insert(
-          [segment.start, segment.start + segment.duration],
-          segment,
-        );
-      });
-      const beats = analysis.beats
-        .map((beat) => {
-          const segments = segmentsTree.search([
-            beat.start,
-            beat.start + beat.duration,
-          ]);
-          if (!segments || segments.length === 0) return null;
-          const segment = segments[0] as (typeof analysis.segments)[number];
-          return {
-            position: beat.start * 1000,
-            value: segment.timbre[0] ?? 0, // avg loudness
-          };
-        })
-        .filter(isDefined);
-
-      const minLoudnessBeats = Math.min(...beats.map((beat) => beat?.value));
-      const maxLoudnessBeats = Math.max(...beats.map((beat) => beat?.value));
-
-      const normalizedBeats = beats.map((beat) => {
-        return {
-          ...beat,
-          value:
-            (beat.value - minLoudnessBeats) /
-            (maxLoudnessBeats - minLoudnessBeats),
-        };
-      });
 
       const ourTrack = await ctx.db.query.tracks.findFirst({
         where: eq(tracks.spotifyTrackId, trackId),
       });
 
       return {
-        ...features,
-        numBeats: Math.round(
-          (features.duration_ms / (1000 * 60)) * Math.round(features.tempo),
-        ),
-        beats: normalizedBeats,
         ...ourTrack,
       };
     }),

@@ -590,14 +590,14 @@ const TrackProgress = forwardRef<Player, TrackProgressProps>(
           className,
         )}
       >
-        {duration !== undefined && trackAnalysis?.beats ? (
+        {duration !== undefined && !!trackAnalysis ? (
           <div className="absolute left-0 top-0 h-full w-full">
             <Waveform
               className="pointer-events-none"
               position={position}
               duration={duration}
-              beats={trackAnalysis.beats}
-              tempo={trackAnalysis.userTapTempo ?? trackAnalysis.tempo}
+              beats={[]}
+              tempo={trackAnalysis.userTapTempo ?? 0}
               beatOffset={trackAnalysis.beatOffset ?? 0}
               offsetX={offsetX}
               scaleX={scaleX}
@@ -654,14 +654,9 @@ function TrackInfo({ className }: TrackInfoProps) {
       {trackAnalysis && (
         <>
           <p className="me-3 inline-flex items-center font-mono text-xs">
-            {Math.floor(trackAnalysis.tempo)}{" "}
             {trackAnalysis.userTapTempo
-              ? `(${trackAnalysis.userTapTempo})`
-              : ""}{" "}
-            BPM
-          </p>
-          <p className="inline-flex items-center font-mono text-xs">
-            {Math.floor(trackAnalysis.time_signature)}/4
+              ? `(${trackAnalysis.userTapTempo}) BPM`
+              : ""}
           </p>
         </>
       )}

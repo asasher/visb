@@ -1,5 +1,5 @@
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
-import { captureException, captureMessage } from "@sentry/nextjs";
+import { captureMessage } from "@sentry/nextjs";
 import { and, eq } from "drizzle-orm";
 import {
   getServerSession,

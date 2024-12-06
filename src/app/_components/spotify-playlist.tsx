@@ -520,9 +520,10 @@ function TrackCard({
 }: TrackCardProps) {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
   const isSm = useMediaQuery({ query: "(min-width: 640px)" });
-  const bpmText = `${Math.round(track.userTapTempo ?? track.tempo ?? 0)} BPM`;
-  const timeSignatureText = `${track.time_signature}/4`;
-  const textSize = `${track.name} ${bpmText} ${timeSignatureText}`.length;
+  const bpmText = track.userTapTempo
+    ? `${Math.round(track.userTapTempo)} BPM`
+    : "";
+  const textSize = `${track.name} ${bpmText}`.length;
   const shouldScroll = !isSm && textSize > 30;
 
   const infoElement = (
@@ -535,7 +536,6 @@ function TrackCard({
     >
       <span>{track.name}</span>
       <span className="ms-4 text-xs opacity-75">{bpmText}</span>
-      <span className="ms-2 text-xs opacity-75">{timeSignatureText}</span>
     </p>
   );
   return (
