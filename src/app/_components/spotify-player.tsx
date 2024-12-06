@@ -262,7 +262,7 @@ export function SpotifyPlayer() {
       {!track && <NothingPlayingAlert />}
       {track && (
         <div className="grid w-full grid-cols-12 items-end justify-center bg-slate-900 shadow-lg">
-          <div className="relative col-span-full h-20 overflow-hidden">
+          <div className="relative col-span-full h-14 overflow-hidden">
             <TrackProgress
               ref={playerRef}
               slices={slices ?? []}

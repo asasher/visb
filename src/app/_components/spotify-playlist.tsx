@@ -7,7 +7,7 @@ import { api } from "~/trpc/react";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { forwardRef, Fragment, useCallback, useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
-import { ArrowDown01, Disc3, Loader2, Trash } from "lucide-react";
+import { ArrowDown01, ArrowDown10, Disc3, Loader2, Trash } from "lucide-react";
 import { Waypoint } from "react-waypoint";
 import { type Player, usePlayerStore } from "./user-player-store";
 
@@ -280,17 +280,6 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
 
     return (
       <>
-        {/* <Button
-          className="mx-4 bg-red-400 hover:bg-red-500"
-          onClick={() => {
-            if (playerRef && "current" in playerRef && playerRef.current) {
-              const player = playerRef.current;
-              void reconnect(player);
-            }
-          }}
-        >
-          {"hit me to break shit or it's already broken"}
-        </Button> */}
         {activePlaylist && (
           <div className="relative mx-4 flex items-start bg-green-500 p-0 text-left text-white">
             <PlaylistCard
@@ -306,6 +295,13 @@ export const SpotifyPlaylist = forwardRef<Player, {}>(
               className="px-4 py-1"
               spotifyPlaylistId={activePlaylist.id}
               disabled={isActionsDisabled}
+              order="desc"
+            />
+            <SortPlaylistByTempoButton
+              className="px-4 py-1"
+              spotifyPlaylistId={activePlaylist.id}
+              disabled={isActionsDisabled}
+              order="asc"
             />
             <Button
               className="rounded-none py-1"
@@ -568,10 +564,12 @@ function SortPlaylistByTempoButton({
   spotifyPlaylistId,
   disabled,
   className,
+  order,
 }: {
   spotifyPlaylistId: string;
   disabled: boolean;
   className: string;
+  order: "asc" | "desc";
 }) {
   const utils = api.useUtils();
   const { mutate: sortByTempo, isPending } =
@@ -589,14 +587,17 @@ function SortPlaylistByTempoButton({
       onClick={() => {
         sortByTempo({
           spotifyPlaylistId,
+          order,
         });
       }}
       disabled={disabled}
     >
       {isPending ? (
         <Loader2 className="h-4 w-4 animate-spin" />
-      ) : (
+      ) : order === "asc" ? (
         <ArrowDown01 className="h-4 w-4" />
+      ) : (
+        <ArrowDown10 className="h-4 w-4" />
       )}
     </Button>
   );

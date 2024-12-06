@@ -12,6 +12,7 @@ export const spotifyRouter = createTRPCRouter({
     .input(
       z.object({
         spotifyPlaylistId: z.string(),
+        order: z.enum(["asc", "desc"]).default("asc"),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -30,9 +31,14 @@ export const spotifyRouter = createTRPCRouter({
         uri: track.track.uri,
         tempo:
           ourTracks.find((x) => x.spotifyTrackId === track.track.id)
-            ?.userTapTempo ?? Number.POSITIVE_INFINITY,
+            ?.userTapTempo ??
+          (input.order === "asc"
+            ? Number.POSITIVE_INFINITY
+            : Number.NEGATIVE_INFINITY),
       }));
-      const sortedTracks = trackTempos.sort((a, b) => a.tempo - b.tempo);
+      const sortedTracks = trackTempos.sort((a, b) =>
+        input.order === "asc" ? a.tempo - b.tempo : b.tempo - a.tempo,
+      );
       const sortTracksUris = sortedTracks.map((track) => track.uri);
       const chunks = chunk(sortTracksUris, 100); // 100 is the max number of tracks per playlist that spotify allows
       await sdk.playlists.updatePlaylistItems(input.spotifyPlaylistId, {
